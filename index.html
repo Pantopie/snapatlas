@@ -493,6 +493,7 @@
     <script defer src="js/ui/export.js"></script>
     <script defer src="js/ui/modals.js"></script>
     <script defer src="js/ui/main.js"></script>
+    <script defer src="js/onboarding.js"></script>
 
     <!-- ── AI DEBUG MODAL ── -->
     <div class="dbg-backdrop" id="dbgBackdrop">
@@ -888,15 +889,10 @@
 
     <!-- ── ANALYTICS CONSENT BANNER ── -->
     <aside id="analytics-banner" aria-label="Analytics consent">
-      <div class="analytics-body">
-        <span class="analytics-title">Help improve SnapAtlas?</span>
-        <span class="analytics-desc"
-          >Anonymous usage data only, no personal info, ever.</span
-        >
-      </div>
+      <span class="analytics-desc">Help improve SnapAtlas? Anonymous usage data only, no personal info, ever.</span>
       <div class="analytics-actions">
-        <button id="analytics-decline" class="btn-ghost">Decline</button>
-        <button id="analytics-accept" class="btn-ghost accent">Accept</button>
+        <button id="analytics-decline">Decline</button>
+        <button id="analytics-accept">Accept</button>
       </div>
     </aside>
 

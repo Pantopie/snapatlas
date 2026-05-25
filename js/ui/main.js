@@ -3,7 +3,7 @@
 function _init() {
   Lucide.initIcons();
   loadProject();
-  initAnalyticsBanner();
+  // Analytics banner is shown after onboarding resolves (see onboarding.js)
 }
 
 // ── API KEY MODAL ──────────────────────────────────────────────────────────
@@ -147,6 +147,7 @@ function loadFile(file) {
     updateButtons();
     saveProject();
     analytics.track("photo_imported");
+    onboarding?.advance("first-texture", "import");
   };
   img.src = url;
 }

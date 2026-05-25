@@ -50,14 +50,11 @@ function initAnalyticsBanner() {
   if (!banner) return;
   banner.style.display = "flex";
 
-  const accept = document.getElementById("analytics-accept");
-  const decline = document.getElementById("analytics-decline");
-
-  accept?.addEventListener("click", () => {
+  document.getElementById("analytics-accept")?.addEventListener("click", () => {
     analytics.consent = true;
     banner.style.display = "none";
   });
-  decline?.addEventListener("click", () => {
+  document.getElementById("analytics-decline")?.addEventListener("click", () => {
     analytics.consent = false;
     banner.style.display = "none";
   });

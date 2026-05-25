@@ -41,6 +41,7 @@ function addRegion(photo, x1, y1, x2, y2) {
   renderPreview();
   updateButtons();
   saveProject();
+  onboarding?.advance("first-texture", "region");
 }
 
 /** @param {HTMLImageElement} img @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2 @returns {string} */
@@ -610,6 +611,7 @@ function renderInspector() {
     invalidateCacheFrom(r, 0);
     autoRunCPU(r, 0);
     renderInspector(); updateButtons(); saveProject();
+    onboarding?.advance("first-texture", "resize");
   });
   inspectorEl.querySelector("#insp-dim-h").addEventListener("change", e => {
     let v = _snapDim(+e.target.value);
@@ -620,6 +622,7 @@ function renderInspector() {
     invalidateCacheFrom(r, 0);
     autoRunCPU(r, 0);
     renderInspector(); updateButtons(); saveProject();
+    onboarding?.advance("first-texture", "resize");
   });
 
   // Material section
@@ -871,6 +874,7 @@ function renderInspector() {
     btn.addEventListener("click", () => {
       r.pipeline.push(makeBlock(btn.dataset.type));
       analytics.track("block_added", { block: btn.dataset.type });
+      onboarding?.advance("first-texture", "block");
       picker.style.display = "none";
       const newIdx = r.pipeline.length - 1;
       invalidateCacheFrom(r, newIdx);
