@@ -1,0 +1,128 @@
+/* ── SIDEBAR ── */
+aside {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border-left: 1px solid var(--border2);
+}
+
+/* Resize handle — drag left edge to resize inspector */
+#inspector-resize {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  z-index: var(--z-controls);
+  transition: background var(--dur-fast);
+
+  &:hover,
+  &.dragging {
+    transition-duration: 0ms;
+    background: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+}
+
+.section {
+  padding: var(--s2) var(--s3) var(--s2);
+  border-bottom: 1px solid var(--border2);
+}
+.section-label {
+  margin-bottom: var(--s2);
+  font-size: var(--fs-label);
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* Key indicator (header button) */
+.key-indicator {
+  opacity: 0.45;
+  transition:
+    opacity var(--dur-fast),
+    color var(--dur-fast);
+  &.key-set {
+    opacity: 1;
+    color: var(--accent);
+  }
+  &:hover {
+    opacity: 1;
+  }
+}
+
+/* API key modal */
+.apikey-modal {
+  width: 420px;
+  max-width: 92vw;
+}
+.apikey-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.apikey-modal-hint {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--muted);
+  line-height: 1.5;
+}
+.apikey-modal-link {
+  font-size: var(--fs-body);
+  color: var(--accent);
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Status (in aside) */
+#status,
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--s3);
+  padding: var(--s2) var(--s3) 0;
+  font-size: var(--fs-label);
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* Strips list */
+#strips-list {
+  flex: 1;
+  padding: var(--s2) var(--s3);
+  overflow-y: auto;
+}
+
+.empty-strips {
+  padding: var(--s4) var(--s3);
+  font-size: var(--fs-label);
+  line-height: 1.7;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  text-align: center;
+  opacity: 0.7;
+}
+
+/* Footer actions */
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border-top: 1px solid var(--border);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  aside {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    max-height: 40vh;
+  }
+}

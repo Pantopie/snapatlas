@@ -1,0 +1,142 @@
+/*
+ * SnapAtlas design system
+ *
+ * Guidelines:
+ * - One component = one CSS block, flat selectors, max 2 levels deep
+ * - button gets beautiful defaults; variants are flat classes
+ * - .label for the recurring "small uppercase muted" pattern
+ * - No utility classes — components own their styling
+ * - Use :root tokens (--s*, --fs*, --r*, --z*, --dur*, --ease*) everywhere
+ * - Sidebar sections: consistent --s3 horizontal padding, --s2 top, --s2 bottom
+ * - Header: distinct from workspace, subtle shadow for depth
+ * - Animation rules:
+ *   • User interaction enter (hover, focus, click) → transition-duration: 0ms (instant)
+ *   • User interaction leave (hover out, blur) → animate out with standard duration and easing
+ *   • Movement (transform, width) → --ease-physical (expo/bounce curve)
+ *   • Color / opacity → standard ease
+ *   • Format: element { transition: ... ; &:hover { transition-duration: 0ms; } }
+ *   • No exceptions — keep everything responsive
+ * - Theme: dark mode enforced
+ * - Available shadow tokens: --shadow-sm  --shadow-md  --shadow-lg  --shadow-inset
+ */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Mono:wght@300;400;500&display=swap");
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Font families */
+  --font-sans:
+    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: "DM Mono", monospace;
+
+  /* Font sizes — semantic hierarchy */
+  --fs-caption: 10px;
+  --fs-label: 12px;
+  --fs-body: 14px;
+  --fs-emphasis: 16px;
+  --fs-heading: 20px;
+  --fs-title: 24px;
+
+  /* Colors — surface hierarchy (dark) */
+  --bg: #0b0c0e;
+  --bg-hover: color-mix(in srgb, var(--accent) 6%, var(--bg));
+  --surface: #10131a;
+  --border: #1e2025;
+  --border2: #2a2d35;
+  --text: #e2e4ea;
+  --muted: #555a66;
+  --color-icon: #555a66;
+
+  /* Colors — semantic */
+  --accent: #4ea2ef;
+  --danger: #f06060;
+  --success: #4caf78;
+  --warning: #e6a817;
+  --persp: var(--accent);
+
+  /* Border radius */
+  --r-sm: 4px;
+  --r: 6px;
+  --r-pill: 9999px;
+
+  /* Spacing — doubling scale (rem) */
+  --s0: 0.125rem;
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 1rem;
+  --s4: 2rem;
+  --s5: 4rem;
+
+  /* Z-index */
+  --z-canvas: 1;
+  --z-controls: 2;
+  --z-cube: 3;
+  --z-drop: 10;
+  --z-progress: 100;
+  --z-toast: 200;
+  --z-modal: 1000;
+  --z-debug: 1100;
+
+  /* Inspector panel width — update this var to resize (future: drag handle) */
+  --inspector-w: 300px;
+
+  /* Responsive breakpoint values */
+  --bp-sm: 480px;
+  --bp-md: 900px;
+
+  /* Animation */
+  --dur-instant: 0s;
+  --dur-fast: 0.08s;
+  --dur-normal: 0.12s;
+  --dur-slow: 0.2s;
+  --dur-bar: 0.3s;
+  --ease-physical: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Logo colors */
+  --logo-blue: #4ea2ef;
+  --logo-green: #98e14f;
+  --logo-yellow: #ffca64;
+  --logo-pink: #f779e6;
+
+  /* Material type colors */
+  --mat-masonry: #c8785a;
+  --mat-wood: #a07840;
+  --mat-metal: #7090a8;
+  --mat-concrete: #909098;
+  --mat-plaster: #c8b890;
+  --mat-tile: #80a8c8;
+  --mat-asphalt: #606870;
+  --mat-fabric: #a080c0;
+  --mat-painted: #c8a030;
+  --mat-glass: #80c8d0;
+  --mat-organic: #608060;
+  --mat-generic: #787878;
+
+  /* Shadows — dark */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+
+  /* Opacity */
+  --opacity-disabled: 0.38;
+  --opacity-overlay: 0.72;
+
+  /* Accent tints — never write color-mix() inline; use these tokens */
+  --accent-10: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-20: color-mix(in srgb, var(--accent) 20%, transparent);
+  --accent-30: color-mix(in srgb, var(--accent) 30%, transparent);
+  --danger-10: color-mix(in srgb, var(--danger) 10%, transparent);
+  --danger-20: color-mix(in srgb, var(--danger) 20%, transparent);
+
+  /* Focus — see :focus-visible rule in ACCESSIBILITY section */
+  --focus-color: var(--accent);
+}
+

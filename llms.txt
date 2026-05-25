@@ -1,0 +1,42 @@
+# SnapAtlas
+
+From photo to game-ready texture atlas in minutes. A free and open-source browser-based tool for indie game devs.
+
+## What it is
+
+SnapAtlas turns photos of real-world surfaces into game-ready texture atlases and trim sheets. Load a photo, define rectangular regions, run correction and cleanup steps, then pack everything into a single exportable atlas.
+
+## Key capabilities
+
+- Modular processing pipeline: perspective correction, lighting normalization, color adjustment, levels, curves, seamless tiling, mirror tiling
+- AI-powered blocks for material classification, albedo cleanup, and AI-assisted seamless tiling (Gemini API, BYO key)
+- Variant system — fork a region's pipeline to create multiple outputs from one source
+- Live preview in four modes: Packing wireframe, Atlas, Tile (with UV scale), and 3D Cube
+- MaxRects bin-packing with per-region rotation and enable/disable
+- Export as single packed atlas (PNG) or bulk texture pack, with UV coordinate JSON
+- Project save/load (`.snapatlas` files) bundling source images, pipeline, and cache
+
+## Main workflow
+
+1. Drop a photo or click "+ Photo"
+2. Draw rectangular regions to mark texture areas
+3. (Optional) Add a Gemini API key for AI blocks
+4. Run the pipeline on selected regions
+5. Click "↓ Export" to download the atlas or texture pack
+
+## AI note
+
+AI is entirely optional. The core pipeline (perspective, lighting, levels, curves, tiling) runs offline with zero AI. AI blocks use the Google Gemini API — bring your own key, images go browser-to-Google, never through our servers.
+
+## Links
+
+- **Live app:** https://snapatlas.dev
+- **GitHub:** https://github.com/Pantopie/snapatlas
+- **README / docs:** https://github.com/Pantopie/snapatlas#readme
+
+## Constraints
+
+- Designed for **albedo/diffuse textures** from photos — not PBR maps or painted content
+- **Browser-based only** — no CLI, no desktop app, no headless mode
+- **Vanilla JS SPA** — no framework, no module system at runtime
+- All processing is client-side; no data is sent to any server except Gemini if you opt in

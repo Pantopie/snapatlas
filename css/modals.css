@@ -1,0 +1,459 @@
+/* ── AI DEBUG MODAL ── */
+.dbg-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-debug);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.82);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-normal);
+
+  &.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+}
+
+.dbg-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  width: min(96vw, 980px);
+  max-height: 92vh;
+  padding: var(--s3) var(--s3);
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: var(--s2);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.dbg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.dbg-title {
+  font-size: var(--fs-emphasis);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dbg-close {
+  padding: var(--s0) var(--s2);
+  font-size: var(--fs-heading);
+  line-height: 1;
+  color: var(--color-icon);
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+
+  &:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+  }
+}
+
+.dbg-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  overflow-y: auto;
+}
+
+.dbg-images {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s2);
+}
+
+.dbg-img-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.dbg-img-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dbg-img-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: var(--s2);
+  overflow: hidden;
+
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+}
+
+.dbg-img-meta {
+  font-size: var(--fs-label);
+  color: var(--muted);
+}
+
+.dbg-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s1);
+}
+
+.dbg-prompt {
+  flex-shrink: 0;
+  max-height: 160px;
+  padding: var(--s2);
+  overflow-y: auto;
+  font-family: inherit;
+  font-size: var(--fs-body);
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--s2);
+  white-space: pre-wrap;
+}
+
+.dbg-response-text {
+  display: none;
+  max-height: 80px;
+  padding: var(--s2);
+  overflow-y: auto;
+  font-family: inherit;
+  font-size: var(--fs-body);
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--s2);
+  white-space: pre-wrap;
+
+  &.has-text {
+    display: block;
+  }
+}
+
+.dbg-dl,
+.dbg-copy {
+  padding: var(--s0) var(--s2);
+  font-size: var(--fs-label);
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+
+  &:hover {
+    color: var(--text);
+    border-color: var(--text);
+  }
+}
+
+/* ── CORNER PICKER MODAL ── */
+.persp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-normal);
+
+  &.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+}
+
+.persp-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  max-width: 92vw;
+  max-height: 92vh;
+  padding: var(--s3) var(--s3);
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: var(--s2);
+  box-shadow: var(--shadow-lg);
+}
+
+.persp-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.persp-modal-title {
+  font-size: var(--fs-emphasis);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.persp-modal-hint {
+  font-size: var(--fs-body);
+  color: var(--muted);
+}
+
+.persp-modal-canvas-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border2);
+  border-radius: var(--s2);
+  overflow: hidden;
+  cursor: crosshair;
+
+  canvas {
+    display: block;
+  }
+}
+
+.persp-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.persp-modal-footer-right {
+  display: flex;
+  gap: var(--s2);
+}
+
+.persp-mbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+
+  &.primary {
+    color: var(--persp);
+    background: color-mix(in srgb, var(--persp) 12%, transparent);
+    border-color: var(--persp);
+
+    &:hover {
+      transition-duration: 0ms;
+      background: color-mix(in srgb, var(--persp) 25%, transparent);
+    }
+  }
+}
+
+/* ── EXPORT MODAL ── */
+.export-modal {
+  width: min(1080px, 96vw);
+}
+
+.export-modal-body {
+  display: flex;
+  gap: var(--s2);
+  height: clamp(420px, 62vh, 680px);
+  min-height: 0;
+}
+
+/* Left column — live preview (fills most of the modal) */
+.export-preview-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+/* Zoomable canvas container */
+.export-preview-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border2);
+  border-radius: var(--s2);
+  background: var(--bg);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+
+  &.panning {
+    cursor: grabbing;
+  }
+}
+
+#exportPreviewCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+}
+
+/* Bottom meta row: dimensions on left, hint on right */
+.export-preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: 0 var(--s0);
+  flex-shrink: 0;
+}
+
+.export-preview-label {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.export-preview-hint {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  opacity: 0.45;
+  white-space: nowrap;
+}
+
+/* Right column — options panel (fixed width, scrollable) */
+.export-options-col {
+  width: 264px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* File size estimate in footer */
+.export-size-est {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  align-self: center;
+}
+.export-filename {
+  font-size: var(--fs-label);
+  color: var(--text);
+  margin-left: var(--s2);
+}
+
+/* Mode toggle */
+/* Sections */
+.export-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.export-section-title {
+  margin-bottom: var(--s1);
+}
+
+/* block-param sliders inside the export panel: widen val column to fit "100%" / "N bit" */
+.export-section .block-param {
+  grid-template-columns: 68px 1fr 36px;
+}
+
+.export-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.export-label {
+  font-size: var(--fs-body);
+  color: var(--muted);
+  width: 52px;
+  flex-shrink: 0;
+}
+
+select.export-select,
+input.export-input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+}
+input.export-input {
+  padding: var(--s0) var(--s2);
+}
+select.export-select {
+  cursor: pointer;
+  padding-right: 22px;
+}
+
+.export-pot-label {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  font-size: var(--fs-label);
+  color: var(--muted);
+  cursor: default;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── CURVES MODAL ── */
+.curves-inline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  margin-top: var(--s0);
+}
+
+.curves-ireset {
+  margin-left: auto;
+  padding: var(--s0) var(--s2);
+  font-family: inherit;
+  font-size: var(--fs-caption);
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  &:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+  }
+}
+
+.curves-inline-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  cursor: crosshair;
+  image-rendering: pixelated;
+}
+
+.curves-inline-hint {
+  font-size: var(--fs-caption);
+  color: var(--muted);
+  text-align: center;
+  opacity: 0.6;
+}

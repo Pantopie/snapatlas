@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en" class="playground">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnapAtlas Design System</title>
+    <link rel="stylesheet" href="app.css" />
+    <style>
+      body {
+        overflow: auto;
+        padding: var(--s5);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>SnapAtlas Design System</h1>
+
+      <!-- ─── TYPOGRAPHY ─── -->
+      <section>
+        <h2>Typography</h2>
+
+        <div class="grid">
+          <article class="card">
+            <h3>Font families</h3>
+            <div>
+              <p class="font-sans">
+                <small class="text-muted">--font-sans</small> The quick brown
+                fox jumps over the lazy dog. 1234567890
+              </p>
+              <p>
+                <small class="text-muted">--font-mono</small> The quick brown
+                fox jumps over the lazy dog. 1234567890
+              </p>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Headings</h3>
+            <h1>h1 — Page / modal title</h1>
+            <h2>h2 — Section header</h2>
+            <h3>h3 — Sub-section header</h3>
+            <h4>h4 — Group header</h4>
+            <h5>h5 — Minor heading</h5>
+            <h6>h6 — Caption heading</h6>
+          </article>
+
+          <article class="card">
+            <h3>Inline text</h3>
+            <p>
+              Plain <strong>strong</strong> <em>emphasized</em>
+              <mark>marked</mark> <small>small</small>
+            </p>
+            <p>
+              <code>code snippet</code> inline with <kbd>kbd</kbd> and
+              <samp>samp</samp>
+            </p>
+            <p>
+              <abbr title="Cascading Style Sheets">CSS</abbr> with title
+              attribute
+            </p>
+          </article>
+
+          <article class="card">
+            <h3>Blockquote</h3>
+            <blockquote cite="https://example.com">
+              A blockquote with a cite attribute. The quick brown fox jumps over
+              the lazy dog.
+            </blockquote>
+          </article>
+
+          <article class="card">
+            <h3>Pre + Code</h3>
+            <pre><code>function greet(name) {
+  return `Hello, ${name}!`;
+}</code></pre>
+            <pre>Plain pre block — no code wrapper</pre>
+          </article>
+
+          <article class="card">
+            <h3>Lists</h3>
+            <div class="row">
+              <ul>
+                <li>Unordered item A</li>
+                <li>Unordered item B</li>
+                <li>Unordered item C</li>
+              </ul>
+              <ol>
+                <li>Ordered item A</li>
+                <li>Ordered item B</li>
+                <li>Ordered item C</li>
+              </ol>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Labels</h3>
+            <div class="row">
+              <span class="label">Default</span>
+              <span class="label label--xs">Extra small</span>
+              <span class="label label--accent">Accent</span>
+              <span class="label">.label</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── TABLE ─── -->
+      <section>
+        <h2>Table</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Token</th>
+              <th>Value</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Body size</td>
+              <td><code>--fs-body</code></td>
+              <td>12px</td>
+              <td>Default reading size</td>
+            </tr>
+            <tr>
+              <td>Label size</td>
+              <td><code>--fs-label</code></td>
+              <td>11px</td>
+              <td>Uppercase section headers</td>
+            </tr>
+            <tr>
+              <td>Emphasis</td>
+              <td><code>--fs-emphasis</code></td>
+              <td>13px</td>
+              <td>Button / input text</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ─── HR + ADDRESS ─── -->
+      <section>
+        <h2>Miscellaneous</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Horizontal rule</h3>
+            <hr />
+            <p>Content after a thematic break.</p>
+          </article>
+          <article class="card">
+            <h3>Address</h3>
+            <address>
+              Written by
+              <a href="mailto:webmaster@example.com">Jon Doe</a>.<br />
+              Visit us at: Example.com<br />
+              Box 564, Disneyland<br />
+              USA
+            </address>
+          </article>
+          <article class="card">
+            <h3>Figure</h3>
+            <figure>
+              <img
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Crect width='120' height='60' fill='var(--bg)'/%3E%3C/svg%3E"
+                alt="Placeholder"
+              />
+              <figcaption>Figure caption for a placeholder image</figcaption>
+            </figure>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── STATE ─── -->
+      <section>
+        <h2>State</h2>
+        <div class="row">
+          <div class="is-disabled">
+            <button>Disabled wrapper</button>
+          </div>
+          <div>
+            <p class="text-muted">Wrapped in <code>.is-disabled</code></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── BUTTONS ─── -->
+      <section>
+        <h2>Buttons</h2>
+
+        <div class="grid">
+          <article class="card">
+            <h3>Base</h3>
+            <div class="row">
+              <button>Normal</button>
+              <button disabled>Disabled</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Primary</h3>
+            <div class="row">
+              <button class="primary">Primary</button>
+              <button class="primary" disabled>Disabled</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Danger</h3>
+            <div class="row">
+              <button class="danger">Danger</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Ghost</h3>
+            <div class="row">
+              <button class="ghost">Ghost</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Accent2</h3>
+            <div class="row">
+              <button class="accent2">Accent2</button>
+              <button class="accent2" disabled>Disabled</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Variants</h3>
+            <div class="row">
+              <button class="dashed small">Dashed small</button>
+              <button class="full small">Full small</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── FORM CONTROLS ─── -->
+      <section>
+        <h2>Form Controls</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Text input</h3>
+            <input type="text" placeholder="Placeholder" value="Some text" />
+          </article>
+          <article class="card">
+            <h3>Password</h3>
+            <input type="password" value="secret123" />
+          </article>
+          <article class="card">
+            <h3>Checkbox</h3>
+            <div class="row">
+              <label><input type="checkbox" /> unchecked</label>
+              <label><input type="checkbox" checked /> checked</label>
+              <label><input type="checkbox" disabled /> disabled</label>
+              <label
+                ><input type="checkbox" checked disabled /> checked +
+                disabled</label
+              >
+            </div>
+          </article>
+          <article class="card">
+            <h3>Select</h3>
+            <select>
+              <option>Option A</option>
+              <option>Option B</option>
+              <option>Option C</option>
+            </select>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── UI WIDGETS ─── -->
+      <section>
+        <h2>UI Widgets</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Pulse dots</h3>
+            <div class="row">
+              <span class="pulse"></span>
+              <span class="pulse text-success"></span>
+              <span class="pulse text-warning"></span>
+              <span class="pulse text-danger"></span>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Toast states</h3>
+            <div class="toast">Normal toast</div>
+            <div class="toast success">Success</div>
+            <div class="toast error">Error</div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── LABELS / TAGS ─── -->
+      <section>
+        <h2>Labels &amp; Tags</h2>
+        <div class="row">
+          <span class="chip chip-accent">AI</span>
+          <span class="chip chip-accent">region</span>
+          <span class="chip chip-accent">async</span>
+          <span class="chip chip-muted">masonry</span>
+          <span class="chip chip-muted chip-primary">wood</span>
+          <span class="chip chip-surface">3</span>
+          <span class="chip chip-surface">5</span>
+        </div>
+      </section>
+
+      <!-- ─── INSPECTOR ─── -->
+      <section>
+        <h2>Inspector</h2>
+
+        <div class="grid">
+          <article class="card">
+            <h3>Empty state</h3>
+            <div class="empty-state">
+              Select a region to inspect its properties and pipeline.
+            </div>
+          </article>
+          <article class="card">
+            <h3>Header</h3>
+            <div class="insp-header">
+              <img
+                class="insp-thumb"
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='34' viewBox='0 0 52 34'%3E%3Crect width='52' height='34' fill='%231e2025'/%3E%3C/svg%3E"
+                alt=""
+              />
+              <div class="insp-meta">
+                <div class="insp-label">region_name.png</div>
+                <div class="insp-dims">
+                  <span>256 × 256</span>
+                  <span class="insp-sel-label">⏺ 4</span>
+                </div>
+              </div>
+              <div class="insp-head-actions">
+                <button class="insp-dl" title="Download">⬇</button>
+                <button class="insp-rotate on" title="Rotate">↻</button>
+                <button class="insp-delete" title="Delete">✕</button>
+              </div>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Empty pipeline</h3>
+            <div class="empty-state">
+              No pipeline blocks — run on empty region
+            </div>
+          </article>
+          <article class="card">
+            <h3>Material badges</h3>
+            <div class="insp-material-section">
+              <div class="insp-mat-row">
+                <span class="chip chip-muted chip-primary mat-masonry"
+                  >masonry</span
+                >
+                <span class="chip chip-muted mat-wood">wood</span>
+                <span class="chip chip-muted mat-metal">metal</span>
+                <span class="chip chip-muted mat-concrete">concrete</span>
+                <span class="chip chip-muted mat-plaster">plaster</span>
+                <span class="chip chip-muted mat-tile">tile</span>
+                <span class="chip chip-muted chip-primary mat-asphalt"
+                  >asphalt</span
+                >
+                <span class="chip chip-muted mat-fabric">fabric</span>
+                <span class="chip chip-muted mat-painted">painted</span>
+                <span class="chip chip-muted mat-glass">glass</span>
+                <span class="chip chip-muted mat-organic">organic</span>
+                <span class="chip chip-muted mat-generic">generic</span>
+              </div>
+              <div class="insp-mat-subtype">Tag: weathered_stone</div>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Classify button</h3>
+            <div class="row">
+              <button class="dashed small full">Classify</button>
+              <button class="dashed small full" disabled>Classifying…</button>
+            </div>
+            <div class="insp-mat-classifying">
+              <span class="insp-mat-spinner">⟳</span> Running AI classify…
+            </div>
+          </article>
+          <article class="card">
+            <h3>Variant chips</h3>
+            <div class="insp-variants-section">
+              <h2 class="insp-variants-label">
+                Variants <span class="chip chip-surface">3</span>
+              </h2>
+              <div class="insp-variant-chip">
+                variant_01.png
+                <span class="insp-variant-dims">64×64</span>
+              </div>
+              <div class="insp-variant-chip">
+                variant_02.png
+                <span class="insp-variant-dims">128×128</span>
+              </div>
+              <button class="insp-add-variant">+ Add variant</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Inherited blocks</h3>
+            <details open class="insp-inherited">
+              <summary class="insp-inherited-summary">
+                Inherited <span class="chip chip-surface">2</span>
+              </summary>
+              <div class="insp-inherited-blocks">
+                <div class="block-item block-item-inherited">
+                  <span class="block-icon">⬡</span>
+                  <span class="block-label">Highpass</span>
+                </div>
+                <div class="block-item block-item-inherited">
+                  <span class="block-icon">⬡</span>
+                  <span class="block-label">Retinex</span>
+                </div>
+              </div>
+            </details>
+          </article>
+          <article class="card">
+            <h3>Crop offset</h3>
+            <div class="insp-crop-section">
+              <h2 class="insp-pipeline-label">
+                Crop Offset
+                <span class="insp-crop-hint">(click canvas to adjust)</span>
+              </h2>
+              <div class="row">
+                <input type="text" class="dim-input" value="12" />
+                <span class="dim-sep">×</span>
+                <input type="text" class="dim-input" value="8" />
+              </div>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Parent link</h3>
+            <div class="insp-variant-parent-link">← parent_region</div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── PIPELINE BLOCKS ─── -->
+      <section>
+        <h2>Pipeline Blocks</h2>
+
+        <div class="grid">
+          <article class="card">
+            <h3>Default blocks</h3>
+            <div class="block-item">
+              <span class="block-drag">⠿</span>
+              <span class="block-toggle-btn on">●</span>
+              <div class="block-identity">
+                <span class="block-icon">⬡</span>
+                <span class="block-label">Retinex</span>
+              </div>
+              <div class="block-actions">
+                <button class="block-run block-btn">▶</button>
+                <button class="block-remove block-btn">✕</button>
+              </div>
+            </div>
+            <div class="block-item">
+              <span class="block-drag">⠿</span>
+              <span class="block-toggle-btn">●</span>
+              <div class="block-identity">
+                <span class="block-icon">⬡</span>
+                <span class="block-label">Levels</span>
+                <span class="block-dot green">●</span>
+              </div>
+              <div class="block-actions">
+                <button class="block-run block-btn">▶</button>
+                <button class="block-remove block-btn">✕</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Block states</h3>
+            <div class="block-item inspected">
+              <span class="block-drag">⠿</span>
+              <span class="block-toggle-btn on">●</span>
+              <div class="block-identity">
+                <span class="block-label">Seamless</span>
+                <span class="block-dot yellow">●</span>
+              </div>
+              <div class="block-actions">
+                <button class="block-run block-btn">▶</button>
+                <button class="block-remove block-btn">✕</button>
+              </div>
+            </div>
+            <div class="block-item running">
+              <span class="block-drag">⠿</span>
+              <span class="block-toggle-btn on">●</span>
+              <div class="block-identity">
+                <span class="block-icon">⬡</span>
+                <span class="block-label">AI Normalize</span>
+                <span class="block-spinner ai-spinner">⟳</span>
+              </div>
+              <div class="block-actions">
+                <button class="block-btn" disabled>▶</button>
+                <button class="block-remove block-btn">✕</button>
+              </div>
+            </div>
+            <div class="block-item drag-over">
+              <span class="block-drag">⠿</span>
+              <span class="block-toggle-btn on">●</span>
+              <div class="block-identity">
+                <span class="block-label">Drop target</span>
+              </div>
+              <div class="block-actions">
+                <button class="block-run block-btn">▶</button>
+                <button class="block-remove block-btn">✕</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Params</h3>
+            <div class="block-item">
+              <div class="block-identity block-identity-full">
+                <span class="block-drag">⠿</span>
+                <span class="block-toggle-btn on">●</span>
+                <span class="block-label">HSL</span>
+                <span class="block-dot green">●</span>
+              </div>
+              <div class="block-params">
+                <div class="block-param">
+                  <span class="block-param-label">Hue</span>
+                  <input
+                    type="range"
+                    class="block-range"
+                    min="0"
+                    max="360"
+                    value="0"
+                  />
+                  <span class="block-param-val">0</span>
+                </div>
+                <div class="block-param">
+                  <span class="block-param-label">Saturation</span>
+                  <input
+                    type="range"
+                    class="block-range"
+                    min="0"
+                    max="200"
+                    value="100"
+                  />
+                  <span class="block-param-val">100</span>
+                </div>
+                <div class="block-param">
+                  <span class="block-param-label">Lightness</span>
+                  <input
+                    type="range"
+                    class="block-range"
+                    min="0"
+                    max="200"
+                    value="100"
+                  />
+                  <span class="block-param-val">100</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Preview states</h3>
+            <div class="block-pv-wrap">preview canvas</div>
+            <div class="block-pv-wrap block-pv-disabled">disabled</div>
+            <div class="block-pv-wrap block-pv-running">
+              <span class="block-ai-running-text">AI running…</span>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Select + textarea</h3>
+            <div class="block-param">
+              <span class="block-param-label">Mode</span>
+              <select class="block-select">
+                <option>Normal</option>
+                <option>Multiply</option>
+                <option>Screen</option>
+              </select>
+            </div>
+            <div class="block-param-textarea">
+              <span class="block-param-label">Prompt</span>
+              <textarea class="block-textarea" placeholder="Enter prompt…">
+some text</textarea
+              >
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── ADD BLOCK / PICKER ─── -->
+      <section>
+        <h2>Add Block &amp; Picker</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Add button</h3>
+            <div class="block-add-wrap">
+              <button class="dashed full">+ Add block</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Picker</h3>
+            <div class="block-picker">
+              <div class="block-picker-cat">Color</div>
+              <button class="block-picker-item">
+                <span class="picker-item-icon">⬡</span>
+                HSL
+                <span class="chip chip-accent">async</span>
+                <span class="picker-item-desc"
+                  >Hue, saturation, lightness adjust</span
+                >
+              </button>
+              <button class="block-picker-item">
+                <span class="picker-item-icon">⬡</span>
+                Levels
+                <span class="picker-item-desc"
+                  >Black point, white point, gamma</span
+                >
+              </button>
+              <div class="block-picker-cat">Filter</div>
+              <button class="block-picker-item">
+                <span class="picker-item-icon">⬡</span>
+                Highpass
+                <span class="picker-item-desc">High-frequency sharpening</span>
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── EXPORT UI ─── -->
+      <section>
+        <h2>Export UI</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Mode toggle</h3>
+            <div class="opt-strip opt-strip--bg opt-strip--start">
+              <button class="opt-btn opt-btn--md active">Atlas</button>
+              <button class="opt-btn opt-btn--md">Region</button>
+              <button class="opt-btn opt-btn--md">Tiles</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Rows</h3>
+            <div class="export-row">
+              <span class="export-label">Format</span>
+              <select class="export-select">
+                <option>PNG</option>
+                <option>WebP</option>
+                <option>JPEG</option>
+              </select>
+            </div>
+            <div class="export-row">
+              <span class="export-label">Size</span>
+              <input class="export-input" type="text" value="1024" />
+            </div>
+            <div class="export-row">
+              <span class="export-label">Name</span>
+              <input class="export-input" type="text" value="atlas_export" />
+            </div>
+            <div class="export-pot-label">
+              <span>📋 POT</span>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Estimates</h3>
+            <div class="export-size-est">~ 245 KB (PNG)</div>
+            <div class="export-filename">atlas_export.png</div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── CURVES UI ─── -->
+      <section>
+        <h2>Curves UI</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Channel tabs</h3>
+            <div class="opt-strip opt-strip--plain">
+              <button class="opt-btn opt-btn--sm active" data-ch="r">R</button>
+              <button class="opt-btn opt-btn--sm" data-ch="g">G</button>
+              <button class="opt-btn opt-btn--sm" data-ch="b">B</button>
+              <button class="opt-btn opt-btn--sm active">RGB</button>
+              <button class="curves-ireset">Reset</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── SIDEBAR ─── -->
+      <section>
+        <h2>Sidebar</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Section</h3>
+            <div class="section">
+              <div class="section-label">Regions</div>
+              <div class="empty-strips">Drop a photo to get started</div>
+            </div>
+            <div class="sidebar-footer">
+              <button class="primary full small">Export All</button>
+              <button class="ghost full small">Save Project</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Status states</h3>
+            <div class="status">Idle</div>
+            <div class="status text-accent">Running block 2/4…</div>
+            <div class="status text-accent">All blocks complete</div>
+            <div class="status text-danger">Block failed: timeout</div>
+          </article>
+          <article class="card">
+            <h3>Key indicator</h3>
+            <div class="row">
+              <span class="key-indicator">🔑 No key</span>
+              <span class="key-indicator key-set">🔑 Key set</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── LAYOUT UTILITIES ─── -->
+      <section>
+        <h2>Layout Utilities</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Dimension inputs</h3>
+            <div class="row">
+              <input class="dim-input" type="text" value="128" />
+              <span class="dim-sep">×</span>
+              <input class="dim-input" type="text" value="256" />
+            </div>
+          </article>
+          <article class="card">
+            <h3>Snap control</h3>
+            <div class="snap-ctrl">
+              <span class="snap-label">⊞</span>
+              <select>
+                <option>None</option>
+                <option>8</option>
+                <option selected>16</option>
+              </select>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ─── HEADER ─── -->
+      <section>
+        <h2>Header</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Atlas name</h3>
+            <input class="atlas-name" type="text" value="My Atlas" />
+          </article>
+          <article class="card">
+            <h3>Photo tools</h3>
+            <div class="opt-strip opt-strip--tl">
+              <button class="opt-btn opt-btn--lg active">✤</button>
+              <button class="opt-btn opt-btn--lg">⊕</button>
+              <button class="opt-btn opt-btn--lg">⊞</button>
+              <button class="opt-btn opt-btn--lg">✕</button>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Preview toggles</h3>
+            <div class="opt-strip opt-strip--tr">
+              <button class="opt-btn opt-btn--fill active">Atlas</button>
+              <button class="opt-btn opt-btn--fill">Cube</button>
+              <button class="opt-btn opt-btn--fill">Tile</button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ── Primary SEO ── -->
+    <title>SnapAtlas · Snap a photo. Get a game-ready texture atlas.</title>
+    <meta
+      name="description"
+      content="From photo to game-ready trim sheets and texture atlases in minutes. Free browser-based texture tool for indie game development."
+    />
+    <meta
+      name="keywords"
+      content="texture pack, trim sheet, PBR texture, tiling texture, texture atlas, game textures, seamless textures, photo to texture, trimsheet, texture atlas tool, free texture atlas, texture atlas generator, indie game texture tool, material classification texture, lighting normalization texture, texture tiling tool, game asset texturing, unity texture atlas, unreal engine textures, godot texture creation, game art pipeline"
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="SnapAtlas" />
+
+    <!-- ── Open Graph ── -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://snapatlas.dev" />
+    <meta
+      property="og:title"
+      content="SnapAtlas · Snap a photo. Get a game-ready texture atlas."
+    />
+    <meta
+      property="og:description"
+      content="From photo to game-ready trim sheets and texture atlases in minutes. Free browser-based texture tool for indie game development."
+    />
+    <meta
+      property="og:image"
+      content="https://snapatlas.dev/assets/screenshot.jpeg"
+    />
+    <meta property="og:site_name" content="SnapAtlas" />
+
+    <!-- ── Twitter Card ── -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="SnapAtlas · Snap a photo. Get a game-ready texture atlas."
+    />
+    <meta
+      name="twitter:description"
+      content="From photo to game-ready trim sheets and texture atlases in minutes. Free browser-based texture tool for indie game development."
+    />
+    <meta
+      name="twitter:image"
+      content="https://snapatlas.dev/assets/screenshot.jpeg"
+    />
+
+    <!-- ── Schema.org structured data ── -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "SnapAtlas",
+        "description": "From photo to game-ready trim sheets and texture atlases in minutes. Free browser-based texture tool for indie game development.",
+        "applicationCategory": "GameDevelopmentApplication",
+        "operatingSystem": "Web",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "keywords": "texture pack, trim sheet, PBR texture, tiling texture, texture atlas, game textures, seamless textures, photo to texture, trimsheet, texture atlas tool, free texture atlas, texture atlas generator, indie game texture tool, material classification texture, lighting normalization texture, texture tiling tool, game asset texturing, unity texture atlas, unreal engine textures, godot texture creation, game art pipeline"
+      }
+    </script>
+
+    <link rel="stylesheet" href="app.css" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 9.5H1.5V2.5C1.5 1.94772 1.94772 1.5 2.5 1.5H9.5V2.5' stroke='%234EA2EF'/%3E%3Cpath d='M12 9.5H14.5V2.5C14.5 1.94772 14.0523 1.5 13.5 1.5H11.5V3.5' stroke='%2398E14F'/%3E%3Cpath d='M11.5 11.5H14.5V13.5C14.5 14.0523 14.0523 14.5 13.5 14.5H11.5V11.5Z' stroke='%23FFCA64'/%3E%3Cpath d='M9.5 11.5V14.5H2.5C1.94772 14.5 1.5 14.0523 1.5 13.5V11.5H6' stroke='%23F779E6'/%3E%3Ccircle cx='8' cy='7' r='3' stroke='%23E6ECF1'/%3E%3Ccircle cx='3.5' cy='3.5' r='0.5' fill='%23E6ECF1'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body id="app">
+    <div id="progress-bar"></div>
+    <div id="toast"></div>
+    <input type="file" id="file-input" accept="image/*" />
+    <input type="file" id="project-input" accept=".snapatlas" />
+
+    <header>
+      <div class="logo-group">
+        <h1 class="logo">
+          <svg
+            class="logo-icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M4 9.5H1.5V2.5C1.5 1.94772 1.94772 1.5 2.5 1.5H9.5V2.5"
+              stroke="var(--logo-blue)"
+            />
+            <path
+              d="M12 9.5H14.5V2.5C14.5 1.94772 14.0523 1.5 13.5 1.5H11.5V3.5"
+              stroke="var(--logo-green)"
+            />
+            <path
+              d="M11.5 11.5H14.5V13.5C14.5 14.0523 14.0523 14.5 13.5 14.5H11.5V11.5Z"
+              stroke="var(--logo-yellow)"
+            />
+            <path
+              d="M9.5 11.5V14.5H2.5C1.94772 14.5 1.5 14.0523 1.5 13.5V11.5H6"
+              stroke="var(--logo-pink)"
+            />
+            <circle cx="8" cy="7" r="3" stroke="#E6ECF1" />
+            <circle cx="3.5" cy="3.5" r="0.5" fill="#E6ECF1" />
+          </svg>
+          <span>SnapAtlas</span>
+        </h1>
+        <p class="logo-tagline">Snap a photo. Get an atlas.</p>
+      </div>
+      <div class="header-center">
+        <input
+          type="text"
+          class="atlas-name"
+          id="atlasName"
+          value="Untitled Atlas"
+          spellcheck="false"
+        />
+      </div>
+      <nav class="header-right" aria-label="Header actions">
+        <nav class="header-social" aria-label="Social links">
+          <ul>
+            <li>
+              <a
+                href="https://www.youtube.com/@apo---"
+                target="_blank"
+                rel="noopener"
+                class="social-link"
+                title="YouTube"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 00.5 6.19 31.6 31.6 0 000 12a31.6 31.6 0 00.5 5.81 3.02 3.02 0 002.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 002.12-2.14A31.6 31.6 0 0024 12a31.6 31.6 0 00-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"
+                  />
+                </svg>
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://bsky.app/profile/apo-gamedev.bsky.social"
+                target="_blank"
+                rel="noopener"
+                class="social-link"
+                title="Bluesky"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 600 530"
+                  fill="currentColor"
+                >
+                  <path
+                    d="m135.72 44.03c66.496 49.921 138.02 151.14 164.28 205.46 26.262-54.316 97.782-155.54 164.28-205.46 47.98-36.021 125.72-63.892 125.72 24.795 0 17.712-10.155 148.79-16.111 170.07-20.703 73.984-96.144 92.854-163.25 81.433 117.3 19.964 147.14 86.092 82.697 152.22-122.39 125.59-175.91-31.511-189.63-71.766-2.514-7.3797-3.6904-10.832-3.7077-7.8964-0.0174-2.9357-1.1937 0.51669-3.7077 7.8964-13.714 40.255-67.233 197.36-189.63 71.766-64.444-66.128-34.605-132.26 82.697-152.22-67.108 11.421-142.55-7.4491-163.25-81.433-5.9562-21.282-16.111-152.36-16.111-170.07 0-88.687 77.742-60.816 125.72-24.795z"
+                  />
+                </svg>
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://store.steampowered.com/developer/pantopie"
+                target="_blank"
+                rel="noopener"
+                class="social-link"
+                title="Steam"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z"
+                  />
+                </svg>
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://github.com/pantopie/snapatlas"
+                target="_blank"
+                rel="noopener"
+                class="social-link"
+                title="GitHub"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.305-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.399s2.04.132 3 .399c2.295-1.552 3.3-1.23 3.3-1.23.645 1.653.24 2.873.105 3.176.77.84 1.235 1.91 1.235 3.22 0 4.61-2.805 5.625-5.475 5.92.42.33.825 1.02.825 2.22 0 1.605-.015 2.905-.015 3.3 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
+                  />
+                </svg>
+              </a>
+            </li>
+          </ul>
+        </nav>
+        <button class="btn-ghost is-hidden" id="btn-new">
+          New
+        </button>
+        <button class="btn-ghost is-hidden" id="btn-save-project">
+          <i data-lucide="download"></i> Save
+        </button>
+        <button class="btn-ghost" id="btn-open-project">
+          <i data-lucide="upload"></i> Open
+        </button>
+        <button
+          class="btn-ghost key-indicator"
+          id="btn-api-key"
+          title="Gemini API Key"
+        >
+          <i data-lucide="key"></i>
+        </button>
+        <button
+          class="btn-ghost accent is-hidden"
+          id="btn-download-atlas"
+        >
+          <i data-lucide="download"></i> Export
+        </button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- Canvas zone — split: photo | atlas preview -->
+      <section id="photo-panel">
+        <div id="drop-overlay">
+          <div class="drop-icon">
+            <svg
+              viewBox="0 0 48 48"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              class="drop-svg"
+            >
+              <rect
+                x="2"
+                y="2"
+                width="44"
+                height="44"
+                stroke="currentColor"
+                stroke-width="0.75"
+                stroke-dasharray="3 6"
+                stroke-linecap="round"
+                opacity="0.5"
+              />
+              <line
+                x1="24"
+                y1="8"
+                x2="24"
+                y2="40"
+                stroke="currentColor"
+                stroke-width="0.75"
+                opacity="0.3"
+              />
+              <line
+                x1="8"
+                y1="24"
+                x2="40"
+                y2="24"
+                stroke="currentColor"
+                stroke-width="0.75"
+                opacity="0.3"
+              />
+              <circle
+                cx="24"
+                cy="24"
+                r="3"
+                stroke="currentColor"
+                stroke-width="1"
+                opacity="0.75"
+              />
+              <path
+                d="M2 12 L2 2 L12 2"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="square"
+              />
+              <path
+                d="M36 2 L46 2 L46 12"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="square"
+              />
+              <path
+                d="M46 36 L46 46 L36 46"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="square"
+              />
+              <path
+                d="M12 46 L2 46 L2 36"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="square"
+              />
+            </svg>
+          </div>
+          <p><strong>Drop a photo</strong> or click to browse</p>
+          <p>Select texture regions, pack your atlas, export.</p>
+        </div>
+        <canvas id="photo-canvas"></canvas>
+        <div class="opt-strip opt-strip--tl" id="photo-tool-group">
+          <button
+            class="opt-btn opt-btn--lg"
+            id="tool-select"
+            title="Select · move & resize regions"
+          >
+            <i data-lucide="pointer"></i>
+          </button>
+          <button
+            class="opt-btn opt-btn--lg active"
+            id="tool-create"
+            title="Create · draw a new region"
+          >
+            <i data-lucide="square-plus"></i>
+          </button>
+          <button
+            class="opt-btn opt-btn--lg"
+            id="btn-load-photo"
+            title="Load a photo"
+          >
+            <i data-lucide="image-plus"></i>
+          </button>
+          <button
+            class="opt-btn opt-btn--lg"
+            id="btn-photo-smooth"
+            title="Toggle smooth filtering (bilinear / nearest)"
+          >
+            <i data-lucide="grid-2x2-x"></i>
+          </button>
+        </div>
+        <button
+          class="btn-reset-view"
+          id="btn-reset-photo"
+          title="Reset zoom & pan"
+          aria-label="Reset zoom and pan"
+        >
+          <i data-lucide="square-dot"></i>
+        </button>
+        <span class="panel-zoom-hint"
+          >scroll to zoom · alt+drag to pan · dbl-click to reset</span
+        >
+      </section>
+      <section id="preview-panel">
+        <h2 class="preview-label">Texture Atlas</h2>
+        <div class="opt-strip opt-strip--tr" id="pvToggleGroup">
+          <button
+            class="opt-btn opt-btn--fill"
+            data-mode="wireframe"
+            role="tab"
+            aria-selected="false"
+          >
+            Packing
+          </button>
+          <button
+            class="opt-btn opt-btn--fill active"
+            data-mode="extracted"
+            role="tab"
+            aria-selected="true"
+          >
+            Atlas
+          </button>
+          <button
+            class="opt-btn opt-btn--fill"
+            data-mode="tile"
+            role="tab"
+            aria-selected="false"
+          >
+            Tile
+          </button>
+          <button
+            class="opt-btn opt-btn--fill"
+            data-mode="cube"
+            role="tab"
+            aria-selected="false"
+          >
+            Cube
+          </button>
+          <button
+            class="opt-btn opt-btn--fill"
+            id="btn-atlas-smooth"
+            title="Toggle smooth filtering (bilinear / nearest)"
+          >
+            <i data-lucide="grid-2x2-x"></i>
+          </button>
+          <div class="snap-ctrl is-hidden" id="snap-ctrl">
+            <span class="snap-label">⊞</span>
+            <select id="snap-grid-sel">
+              <option value="8">8px</option>
+              <option value="16" selected>16px</option>
+              <option value="32">32px</option>
+              <option value="64">64px</option>
+              <option value="128">128px</option>
+            </select>
+          </div>
+        </div>
+        <canvas id="preview-canvas" style="display: none"></canvas>
+        <canvas id="cube-canvas" style="display: none"></canvas>
+        <div id="cube-controls" style="display: none">
+          <span>UV scale</span>
+          <input
+            type="range"
+            class="block-range"
+            id="cube-uv-scale"
+            min="10"
+            max="200"
+            step="5"
+            value="50"
+          />
+          <span id="cube-uv-val">50%</span>
+          <button
+            class="opt-btn opt-btn--fill active"
+            id="btn-cube-auto-rotate"
+            title="Toggle auto-rotation"
+            aria-label="Toggle auto-rotation"
+          >
+            <i data-lucide="rotate-ccw"></i>
+          </button>
+        </div>
+        <p class="preview-hint" id="preview-hint">
+          Draw regions on the photo<br />to build your texture atlas
+        </p>
+        <span id="preview-size"></span>
+        <button
+          class="btn-reset-view"
+          id="btn-reset-pv"
+          title="Reset zoom & pan"
+          aria-label="Reset zoom and pan"
+        >
+          ⊡
+        </button>
+        <span class="panel-zoom-hint"
+          >scroll to zoom · alt+drag to pan · dbl-click to reset</span
+        >
+      </section>
+
+      <!-- Sidebar / Inspector -->
+      <aside>
+        <div id="inspector-resize" title="Drag to resize panel"></div>
+        <div id="status"></div>
+
+        <!-- Region inspector — populated by renderInspector() -->
+        <div id="inspector">
+          <div class="empty-state">
+            Click a region on the photo<br />or atlas to inspect it
+          </div>
+        </div>
+        <span class="aside-credit"
+          >Made with 💙 by
+          <a
+            href="https://www.youtube.com/@apo---"
+            target="_blank"
+            rel="noopener"
+            >Apo</a
+          >
+          from
+          <a
+            href="https://store.steampowered.com/developer/pantopie"
+            target="_blank"
+            rel="noopener"
+            >Pantopie</a
+          ></span
+        >
+      </aside>
+    </main>
+
+    <script type="module">
+      import { GoogleGenAI } from "https://esm.sh/@google/genai";
+      window.GoogleGenAI = GoogleGenAI;
+    </script>
+    <script defer src="js/lib/nanoid.js"></script>
+    <script defer src="js/lib/icons.js"></script>
+    <script defer src="js/dom.js"></script>
+    <script defer src="js/state.js"></script>
+    <script defer src="js/storage.js"></script>
+    <script defer src="js/math.js"></script>
+    <script defer src="js/packer.js"></script>
+    <script defer src="js/seamless.js"></script>
+    <script defer src="js/webgl.js"></script>
+    <script defer src="js/ai.js"></script>
+    <script defer src="js/analytics.js"></script>
+    <script defer src="js/pipeline.js"></script>
+    <script defer src="js/export.js"></script>
+    <script defer src="js/ui/canvas.js"></script>
+    <script defer src="js/ui/inspector.js"></script>
+    <script defer src="js/ui/preview.js"></script>
+    <script defer src="js/ui/export.js"></script>
+    <script defer src="js/ui/modals.js"></script>
+    <script defer src="js/ui/main.js"></script>
+
+    <!-- ── AI DEBUG MODAL ── -->
+    <div class="dbg-backdrop" id="dbgBackdrop">
+      <div class="dbg-modal">
+        <div class="dbg-header">
+          <h1 class="dbg-title"><i data-lucide="search"></i> AI Debug</h1>
+          <button class="dbg-close" id="dbgClose">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="dbg-body">
+          <h2 class="dbg-section-label" style="color: var(--text)">
+            Block I/O
+          </h2>
+          <div class="dbg-images">
+            <div class="dbg-img-block">
+              <div class="dbg-img-label">
+                <span>Sent</span
+                ><button class="dbg-dl" id="dbgP1DlSent">
+                  <i data-lucide="download"></i>
+                </button>
+              </div>
+              <div class="dbg-img-wrap">
+                <img id="dbgP1SentImg" src="" alt="p1 sent" />
+              </div>
+              <span class="dbg-img-meta" id="dbgP1SentMeta"></span>
+            </div>
+            <div class="dbg-img-block">
+              <div class="dbg-img-label">
+                <span>Received</span
+                ><button class="dbg-dl" id="dbgP1DlRecv">
+                  <i data-lucide="download"></i>
+                </button>
+              </div>
+              <div class="dbg-img-wrap">
+                <img id="dbgP1RecvImg" src="" alt="p1 recv" />
+              </div>
+              <span class="dbg-img-meta" id="dbgP1RecvMeta"></span>
+            </div>
+          </div>
+          <div>
+            <h2 class="dbg-section-label">
+              <span>Prompt</span
+              ><button class="dbg-copy" id="dbgP1Copy">
+                <i data-lucide="copy"></i> Copy
+              </button>
+            </h2>
+            <pre class="dbg-prompt" id="dbgP1Prompt"></pre>
+            <pre class="dbg-response-text" id="dbgP1RT"></pre>
+          </div>
+
+          <!-- PASS 2a: vertical seam -->
+          <!-- PASS 2: cross-seam repair -->
+          <div id="dbgPass2Section">
+            <h2
+              class="dbg-section-label"
+              style="color: var(--text); margin-top: 4px"
+            >
+              Pass 2 · Periodic Boundary Enforcement (2×2 tiling → crop
+              top-left)
+            </h2>
+            <div class="dbg-images">
+              <div class="dbg-img-block">
+                <div class="dbg-img-label">
+                  <span>Sent (2×2 tiling, seam cross at center)</span
+                  ><button class="dbg-dl" id="dbgP2DlSent">
+                    <i data-lucide="download"></i>
+                  </button>
+                </div>
+                <div class="dbg-img-wrap">
+                  <img id="dbgP2SentImg" src="" alt="p2 sent" />
+                </div>
+                <span class="dbg-img-meta" id="dbgP2SentMeta"></span>
+              </div>
+              <div class="dbg-img-block">
+                <div class="dbg-img-label">
+                  <span>Received (crop top-left quadrant)</span
+                  ><button class="dbg-dl" id="dbgP2DlRecv">
+                    <i data-lucide="download"></i>
+                  </button>
+                </div>
+                <div class="dbg-img-wrap">
+                  <img id="dbgP2RecvImg" src="" alt="p2 recv" />
+                </div>
+                <span class="dbg-img-meta" id="dbgP2RecvMeta"></span>
+              </div>
+            </div>
+            <div>
+              <h2 class="dbg-section-label">
+                <span>Prompt</span
+                ><button class="dbg-copy" id="dbgP2Copy">
+                  <i data-lucide="copy"></i> Copy
+                </button>
+              </h2>
+              <pre class="dbg-prompt" id="dbgP2Prompt"></pre>
+              <pre class="dbg-response-text" id="dbgP2RT"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── API KEY MODAL ── -->
+    <div
+      class="persp-modal-backdrop"
+      id="apikeyModalBackdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="apikeyModalTitle"
+    >
+      <div class="persp-modal apikey-modal">
+        <div class="persp-modal-header">
+          <h1 class="persp-modal-title" id="apikeyModalTitle">
+            <i data-lucide="key"></i> Gemini API Key
+          </h1>
+          <button
+            class="persp-mbtn"
+            id="apikeyModalClose"
+            style="padding: 4px 9px"
+            aria-label="Close"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="apikey-modal-body">
+          <p class="apikey-modal-hint">
+            Required for AI classification and texture normalization. Your key
+            is stored locally and never sent to our servers.
+          </p>
+          <a
+            class="apikey-modal-link"
+            href="https://aistudio.google.com/app/apikey"
+            target="_blank"
+            rel="noopener"
+            >Get a free key at Google AI Studio →</a
+          >
+          <input
+            type="password"
+            id="api-key"
+            placeholder="AIza..."
+            autocomplete="off"
+          />
+        </div>
+        <div class="persp-modal-footer">
+          <div></div>
+          <div class="persp-modal-footer-right">
+            <button class="persp-mbtn" id="apikeyModalCancel">Cancel</button>
+            <button class="persp-mbtn primary" id="apikeyModalSave">
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EXPORT MODAL ── -->
+    <div
+      class="persp-modal-backdrop"
+      id="exportModalBackdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="exportModalTitle"
+    >
+      <div class="persp-modal export-modal">
+        <div class="persp-modal-header">
+          <h1 class="persp-modal-title" id="exportModalTitle">
+            <i data-lucide="package"></i> Export
+          </h1>
+          <button
+            class="persp-mbtn"
+            id="exportModalClose"
+            style="padding: 4px 9px"
+            aria-label="Close"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="export-modal-body">
+          <!-- Left: live preview -->
+          <div class="export-preview-col">
+            <div class="export-preview-wrap" id="exportPreviewWrap">
+              <canvas id="exportPreviewCanvas"></canvas>
+            </div>
+            <div class="export-preview-meta">
+              <span id="exportPreviewLabel">—</span>
+              <span class="export-preview-hint"
+                >Scroll to zoom · Drag to pan · Double-click to fit</span
+              >
+            </div>
+          </div>
+          <!-- Right: options -->
+          <div class="export-options-col">
+            <!-- Mode toggle -->
+            <div class="opt-strip opt-strip--bg opt-strip--start">
+              <button
+                class="opt-btn opt-btn--md active"
+                id="exportModeAtlas"
+                data-mode="atlas"
+              >
+                Atlas
+              </button>
+              <button
+                class="opt-btn opt-btn--md"
+                id="exportModeRegions"
+                data-mode="regions"
+              >
+                Individual regions
+              </button>
+            </div>
+
+            <!-- Image section -->
+            <div class="export-section">
+              <h2 class="export-section-title">Image</h2>
+              <div class="export-row">
+                <label class="export-label">Name</label>
+                <input
+                  type="text"
+                  class="export-input"
+                  id="exportName"
+                  spellcheck="false"
+                />
+              </div>
+              <div class="export-row">
+                <label class="export-label">Format</label>
+                <select class="export-select" id="exportFormat">
+                  <option value="png">PNG (lossless)</option>
+                  <option value="webp">WebP</option>
+                  <option value="jpeg">JPEG</option>
+                </select>
+              </div>
+              <label
+                class="block-param export-jpeg-quality"
+                id="exportJpegRow"
+                style="display: none"
+              >
+                <span class="block-param-label">Quality</span>
+                <input
+                  type="range"
+                  class="block-range"
+                  id="exportQuality"
+                  min="1"
+                  max="100"
+                  value="90"
+                />
+                <span class="block-param-val" id="exportQualityVal">90</span>
+              </label>
+            </div>
+
+            <!-- Resolution section -->
+            <div class="export-section">
+              <h2 class="export-section-title">Resolution</h2>
+              <!-- Atlas mode: size select -->
+              <div class="export-row" id="exportSizeRow">
+                <label class="export-label">Size</label>
+                <select class="export-select" id="exportSize"></select>
+                <label
+                  class="export-pot-label"
+                  title="Atlas is always a power-of-two square"
+                >
+                  <input type="checkbox" checked disabled /> POT
+                </label>
+              </div>
+              <!-- Regions mode: scale select -->
+              <div class="export-row" id="exportScaleRow" style="display: none">
+                <label class="export-label">Scale</label>
+                <select class="export-select" id="exportScale">
+                  <option value="1">Full (1×)</option>
+                  <option value="0.5">Half (0.5×)</option>
+                  <option value="0.25">Quarter (0.25×)</option>
+                </select>
+              </div>
+              <div class="export-row">
+                <label class="export-label">Filter</label>
+                <select class="export-select" id="exportFilter">
+                  <option value="bilinear">Bilinear</option>
+                  <option value="nearest">Nearest (pixel art)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Stylize section -->
+            <div class="export-section">
+              <h2 class="export-section-title">Stylize</h2>
+              <label class="block-param">
+                <span class="block-param-label">Saturation</span>
+                <input
+                  type="range"
+                  class="block-range"
+                  id="exportSaturation"
+                  min="0"
+                  max="200"
+                  value="100"
+                  step="1"
+                />
+                <span class="block-param-val" id="exportSaturationVal"
+                  >100%</span
+                >
+              </label>
+              <label class="block-param" id="exportBitDepthRow">
+                <span class="block-param-label">Bit depth</span>
+                <input
+                  type="range"
+                  class="block-range"
+                  id="exportBitDepth"
+                  min="1"
+                  max="8"
+                  value="8"
+                  step="1"
+                />
+                <span class="block-param-val" id="exportBitDepthVal">off</span>
+              </label>
+              <div
+                class="export-row"
+                id="exportDitherRow"
+                style="display: none"
+              >
+                <label class="export-label">Dither</label>
+                <select class="export-select" id="exportDither">
+                  <option value="none">None</option>
+                  <option value="bayer2">Bayer 2×2</option>
+                  <option value="bayer4" selected>Bayer 4×4</option>
+                  <option value="fs">Floyd-Steinberg</option>
+                </select>
+              </div>
+              <div class="export-row">
+                <label class="export-label">Palette</label>
+                <select class="export-select" id="exportFixedPalette">
+                  <option value="none">None</option>
+                  <optgroup label="Handhelds">
+                    <option value="gameboy">Game Boy (4)</option>
+                    <option value="gbpocket">GB Pocket (4)</option>
+                    <option value="virtualboy">Virtual Boy (4)</option>
+                  </optgroup>
+                  <optgroup label="Home computers">
+                    <option value="c64">C64 (16)</option>
+                    <option value="zxspectrum">ZX Spectrum (15)</option>
+                    <option value="msx">MSX (16)</option>
+                    <option value="cpc">Amstrad CPC (27)</option>
+                  </optgroup>
+                  <optgroup label="PC / Arcade">
+                    <option value="cga">CGA (16)</option>
+                    <option value="ega">EGA (64)</option>
+                    <option value="nes">NES (64)</option>
+                  </optgroup>
+                  <optgroup label="Community">
+                    <option value="pico8">Pico-8 (16)</option>
+                    <option value="sweetie16">Sweetie 16 (16)</option>
+                    <option value="dawnbringer16">Dawnbringer 16 (16)</option>
+                    <option value="dawnbringer32">Dawnbringer 32 (32)</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+
+            <!-- UV Data section (atlas mode only) -->
+            <div class="export-section" id="exportUVSection">
+              <h2 class="export-section-title">UV Data</h2>
+              <div class="export-row">
+                <label class="export-label">Engine</label>
+                <select class="export-select" id="exportEngine">
+                  <option value="none">None — image only</option>
+                  <option value="snapatlas" selected>SnapAtlas JSON</option>
+                  <option value="unity">Unity</option>
+                  <option value="ue5">Unreal Engine 5</option>
+                  <option value="godot4">Godot 4</option>
+                  <option value="blender_zenuv">Blender — ZenUV</option>
+                </select>
+              </div>
+              <div class="export-row">
+                <label class="export-label">Names</label>
+                <select class="export-select" id="exportNaming">
+                  <option value="snake_case">snake_case</option>
+                  <option value="camelCase">camelCase</option>
+                  <option value="PascalCase">PascalCase</option>
+                  <option value="raw">Raw (as-is)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="persp-modal-footer">
+          <span class="export-size-est" id="exportFileSizeEst"></span>
+          <span class="export-filename" id="exportFilename"></span>
+          <div class="persp-modal-footer-right">
+            <button class="persp-mbtn" id="exportModalCancel">Cancel</button>
+            <button class="persp-mbtn primary" id="exportModalExport">
+              Export <i data-lucide="download"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ANALYTICS CONSENT BANNER ── -->
+    <aside id="analytics-banner" aria-label="Analytics consent">
+      <div class="analytics-body">
+        <span class="analytics-title">Help improve SnapAtlas?</span>
+        <span class="analytics-desc"
+          >Anonymous usage data only, no personal info, ever.</span
+        >
+      </div>
+      <div class="analytics-actions">
+        <button id="analytics-decline" class="btn-ghost">Decline</button>
+        <button id="analytics-accept" class="btn-ghost accent">Accept</button>
+      </div>
+    </aside>
+
+    <!-- ── CORNER PICKER MODAL ── -->
+    <div
+      class="persp-modal-backdrop"
+      id="perspModalBackdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="perspModalTitle"
+    >
+      <div class="persp-modal">
+        <div class="persp-modal-header">
+          <h1 class="persp-modal-title" id="perspModalTitle">
+            <i data-lucide="ruler"></i> Perspective corners
+          </h1>
+          <span class="persp-modal-hint"
+            >Drag the handles to mark the 4 corners of the surface</span
+          >
+          <button
+            class="persp-mbtn"
+            id="perspModalClose"
+            style="padding: 4px 9px"
+            aria-label="Close"
+          >
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="persp-modal-canvas-wrap" id="perspModalWrap">
+          <canvas id="perspModalCanvas"></canvas>
+        </div>
+        <div class="persp-modal-footer">
+          <button class="persp-mbtn" id="perspModalReset">
+            Reset to auto-detect
+          </button>
+          <div class="persp-modal-footer-right">
+            <button class="persp-mbtn" id="perspModalCancel">Cancel</button>
+            <button class="persp-mbtn primary" id="perspModalApply">
+              Apply
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
