@@ -202,9 +202,7 @@
             </li>
           </ul>
         </nav>
-        <button class="btn-ghost is-hidden" id="btn-new">
-          New
-        </button>
+        <button class="btn-ghost is-hidden" id="btn-new">New</button>
         <button class="btn-ghost is-hidden" id="btn-save-project">
           <i data-lucide="download"></i> Save
         </button>
@@ -218,10 +216,7 @@
         >
           <i data-lucide="key"></i>
         </button>
-        <button
-          class="btn-ghost accent is-hidden"
-          id="btn-download-atlas"
-        >
+        <button class="btn-ghost accent is-hidden" id="btn-download-atlas">
           <i data-lucide="download"></i> Export
         </button>
       </nav>
@@ -889,10 +884,15 @@
 
     <!-- ── ANALYTICS CONSENT BANNER ── -->
     <aside id="analytics-banner" aria-label="Analytics consent">
-      <span class="analytics-desc">Help improve SnapAtlas? Anonymous usage data only, no personal info, ever.</span>
+      <div class="analytics-body">
+        <span class="analytics-title">Help improve SnapAtlas?</span>
+        <span class="analytics-desc"
+          >Anonymous usage data only, no personal info, ever.</span
+        >
+      </div>
       <div class="analytics-actions">
-        <button id="analytics-decline">Decline</button>
-        <button id="analytics-accept">Accept</button>
+        <button id="analytics-decline" class="btn-ghost">Decline</button>
+        <button id="analytics-accept" class="btn-ghost accent">Accept</button>
       </div>
     </aside>
 
