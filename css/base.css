@@ -399,7 +399,7 @@ svg.lucide {
 
 .analytics-title {
   font-size: var(--fs-body);
-  color: var(--accent);
+  color: var(--text);
   white-space: nowrap;
 }
 

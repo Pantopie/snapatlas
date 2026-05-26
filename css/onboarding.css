@@ -1,0 +1,84 @@
+/* ── ONBOARDING ──────────────────────────────────────────────────────────────
+ * Layout-only rules. All visual tokens (color, shadow, radius, spacing)
+ * come from the design system — nothing is duplicated here.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes _ob_confetti {
+  0%   { transform: translate(-50%, -50%) rotate(0deg);              opacity: 0; }
+  10%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--rot)); opacity: 0; }
+}
+
+@keyframes ob-ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--accent-20); }
+  50%       { box-shadow: 0 0 0 8px var(--accent-10); }
+}
+
+@keyframes ob-card-float {
+  0%, 100% { transform: translateY(0);   }
+  50%       { transform: translateY(-4px); }
+}
+
+/* Highlight ring — drawn around each target element */
+.ob-ring {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1050;
+  border-radius: var(--r-sm);
+  outline: 2px solid var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-20);
+  animation: ob-ring-pulse 2.4s ease-in-out infinite;
+  transition:
+    top    var(--dur-fast) var(--ease-physical),
+    left   var(--dur-fast) var(--ease-physical),
+    width  var(--dur-fast) var(--ease-physical),
+    height var(--dur-fast) var(--ease-physical);
+}
+
+/* Tutorial card — positioned near the primary highlighted element */
+#ob-card {
+  animation: ob-card-float 3.6s ease-in-out infinite;
+  position: fixed;
+  z-index: 1051;
+  width: 220px;
+  /* Reset persp-modal constraints that don't apply to a fixed tooltip card */
+  max-width: none;
+  max-height: none;
+}
+
+#ob-card .ob-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#ob-card .ob-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.ob-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ob-dots {
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+}
+
+.ob-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border2);
+  transition: background var(--dur-fast);
+}
+
+.ob-dot--active {
+  background: var(--accent);
+}

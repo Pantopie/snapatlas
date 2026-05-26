@@ -115,9 +115,9 @@ function _loadImageFromDataUrl(dataUrl) {
 /** Shared UI restoration after any project load (session or disk). */
 function _restoreUIAfterLoad() {
   dropOverlay.classList.add("hidden");
-  btnNew.style.display = "inline-block";
-  btnSaveProject.style.display = "inline-block";
-  document.getElementById("snap-ctrl").style.display = "flex";
+  btnNew.classList.remove("is-hidden");
+  btnSaveProject.classList.remove("is-hidden");
+  document.getElementById("snap-ctrl").classList.remove("is-hidden");
   if (state.regions.length) setTool("select");
   atlasNameInput.value = state.atlasName || "Untitled Atlas";
   renderCanvas();
@@ -190,8 +190,8 @@ function saveProject() {
   const regions  = state.regions.map(r => ({ ..._regionMeta(r), hasExtracted: !!r.extracted }));
   try {
     localStorage.setItem("snapatlas_project", JSON.stringify({ version: 3, photos, regions, processed: state.processed, regionCounter: state.regionCounter, atlasName: state.atlasName }));
-    btnNew.style.display = "inline-block";
-    btnSaveProject.style.display = "inline-block";
+    btnNew.classList.remove("is-hidden");
+    btnSaveProject.classList.remove("is-hidden");
   } catch (_) { _warnStorageFull(); }
   // Persist each photo image to IDB (fire-and-forget; only needed if not already there)
   for (const p of state.photos) {

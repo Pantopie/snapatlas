@@ -21,6 +21,7 @@ const ORDER = [
   "ui/export",
   "ui/modals",
   "ui/main",
+  "onboarding",
 ];
 
 function hash(content: string): string {

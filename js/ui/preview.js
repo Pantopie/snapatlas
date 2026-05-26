@@ -225,6 +225,7 @@ window.addEventListener("mouseup", () => {
   renderPreview();
   renderInspector();
   saveProject();
+  onboarding?.advance("first-texture", "resize");
 });
 
 // ── TRIM SHEET PREVIEW ─────────────────────────────────────────────────────

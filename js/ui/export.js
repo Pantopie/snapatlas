@@ -429,6 +429,7 @@ atlasNameInput.addEventListener("input", () => {
 // ── Event wiring ───────────────────────────────────────────────────────────
 
 btnDownloadAtlas.addEventListener("click", openExportModal);
+btnDownloadAtlas.addEventListener("click", () => onboarding?.advance("first-texture", "export"));
 
 document.getElementById("exportModalClose").addEventListener("click",  _closeExportModal);
 document.getElementById("exportModalCancel").addEventListener("click", _closeExportModal);

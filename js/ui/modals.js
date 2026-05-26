@@ -5,6 +5,9 @@ function openCornersModal(idx) {
   const photo = getPhotoForRegion(r);
   if (!r) { showToast("Region not found", "error"); return; }
   if (!photo) { showToast("Source image not loaded", "error"); return; }
+  // Hide onboarding UI while the perspective modal is in the foreground
+  document.querySelectorAll(".ob-ring").forEach(el => el.classList.add("is-hidden"));
+  document.getElementById("ob-card")?.classList.add("is-hidden");
 
   const perspBlock = r.pipeline.find(b => b.type === "perspective");
 
@@ -274,6 +277,10 @@ function openCornersModal(idx) {
   // ── Buttons ────────────────────────────────────────────────────────────
   const closeModal = () => {
     document.getElementById("perspModalBackdrop").classList.remove("open");
+    // Restore onboarding UI and advance
+    document.querySelectorAll(".ob-ring").forEach(el => el.classList.remove("is-hidden"));
+    document.getElementById("ob-card")?.classList.remove("is-hidden");
+    onboarding?.advance("first-texture", "corners");
     canvas.onmousedown =
       canvas.onmousemove =
       canvas.onmouseup =
