@@ -485,13 +485,7 @@ async function extractTextureWithAI(region) {
     inputCanvas.height,
   );
   const p1Sent = inputCanvas.toDataURL("image/png").split(",")[1];
-  const p1 = await _callGemini(
-    p1Sent,
-    "image/png",
-    p1Prompt,
-    region.outputW,
-    region.outputH,
-  );
+  const p1 = await _callGemini(p1Sent, "image/png", p1Prompt);
 
   region._debug = {
     pass1: {
@@ -518,12 +512,12 @@ async function extractTextureWithAI(region) {
 
 // ── Gemini API helper ──────────────────────────────────────────────────────
 // Sends one image + prompt, returns { canvas, receivedMime, receivedB64, textParts }.
-// canvas is cover-cropped to outW × outH; canvas is null if no image returned.
+// canvas is at the native resolution Gemini returned; canvas is null if no image returned.
 // extraImages: optional [{b64, mime}] — appended after the primary image (e.g. seam mask).
 /** @returns {Promise<GeminiResponse>} */
-async function _callGemini(b64, mime, prompt, outW, outH, temperature = 0.4, extraImages = []) {
+async function _callGemini(b64, mime, prompt, temperature = 0.4, extraImages = []) {
   const ai = new GoogleGenAI({ apiKey: state.apiKey });
-  return _callGeminiWithAI(ai, b64, mime, prompt, outW, outH, temperature, extraImages);
+  return _callGeminiWithAI(ai, b64, mime, prompt, temperature, extraImages);
 }
 
 // ── BLOCK RUNNERS ─────────────────────────────────────────────────────────
@@ -561,9 +555,7 @@ async function aiNormalizeRunner(input, params, ctx) {
   const p1Prompt = _buildP1Prompt(region, input.width, input.height, params.userHint, params.strength ?? "balanced");
   const p1Sent = input.toDataURL("image/png").split(",")[1];
 
-  const p1 = await _callGeminiWithAI(
-    ai, p1Sent, "image/png", p1Prompt, region.outputW, region.outputH,
-  );
+  const p1 = await _callGeminiWithAI(ai, p1Sent, "image/png", p1Prompt);
   if (signal?.aborted) return null;
   if (!p1.canvas) throw new Error("AI returned no image for normalize pass");
 
@@ -628,15 +620,17 @@ async function aiSeamlessRunner(input, params, ctx) {
     `· Do not blur or smear — generate real texture detail\n\n` +
     `OUTPUT: Return the full ${sendW}×${sendH} image with the region repaired.`;
 
-  const p2 = await _callGeminiWithAI(ai, sentB64, "image/png", prompt, sendW, sendH, 0.3);
+  const p2 = await _callGeminiWithAI(ai, sentB64, "image/png", prompt, 0.3);
   if (signal?.aborted) return null;
   if (!p2.canvas) throw new Error("AI returned no image for seamless pass");
 
   if (ctx.block) ctx.block._debug = { sentB64, sentMime: "image/png", prompt, ...p2 };
 
-  // 5. Upscale back if needed
+  // 5. Normalize inpainted back to W × H before compositing.
+  // Gemini may return a different native resolution; always resize to match the
+  // input so _compositeMasked receives consistent dimensions.
   let inpainted = p2.canvas;
-  if (sendScale < 1) {
+  if (inpainted.width !== W || inpainted.height !== H) {
     const full = document.createElement("canvas");
     full.width = W; full.height = H;
     full.getContext("2d").drawImage(inpainted, 0, 0, W, H);
@@ -651,7 +645,7 @@ async function aiSeamlessRunner(input, params, ctx) {
 }
 
 /** @returns {Promise<GeminiResponse>} */
-async function _callGeminiWithAI(ai, b64, mime, prompt, outW, outH, temperature = 0.4, extraImages = []) {
+async function _callGeminiWithAI(ai, b64, mime, prompt, temperature = 0.4, extraImages = []) {
   const parts = [
     { inlineData: { mimeType: mime, data: b64 } },
     ...extraImages.map(img => ({ inlineData: { mimeType: img.mime, data: img.b64 } })),
@@ -677,11 +671,11 @@ async function _callGeminiWithAI(ai, b64, mime, prompt, outW, outH, temperature 
     const img = new Image();
     img.onload = () => {
       const out = document.createElement("canvas");
-      out.width = outW; out.height = outH;
-      const c = out.getContext("2d");
-      c.imageSmoothingEnabled = true;
-      c.imageSmoothingQuality = "high";
-      c.drawImage(img, 0, 0, outW, outH);
+      // Store at the native resolution Gemini returned — never downscale here.
+      // Callers that need a specific size (e.g. aiSeamlessRunner) handle their
+      // own resize; the pipeline passthrough scales on-the-fly when outputW/H changes.
+      out.width = img.naturalWidth; out.height = img.naturalHeight;
+      out.getContext("2d").drawImage(img, 0, 0);
       res(out);
     };
     img.src = `data:${receivedMime};base64,${receivedB64}`;

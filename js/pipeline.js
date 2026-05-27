@@ -383,8 +383,24 @@ async function runPipelineUpTo(region, targetIdx, ctx) {
     if (!b.enabled) continue;
 
     // Async block without an AI context: use cached output as passthrough, never execute.
+    // Scale the cache to match the current pipeline dimensions so that changing
+    // outputW/H (e.g. 512→1024) works without re-running the AI — the native-res
+    // cache is simply scaled to the new target size on the fly.
     if (BLOCK_DEFS[b.type]?.isAsync && !ctx.ai) {
-      if (b._cache) canvas = b._cache;
+      if (b._cache) {
+        const tw = canvas.width, th = canvas.height;
+        if (b._cache.width === tw && b._cache.height === th) {
+          canvas = b._cache;
+        } else {
+          const scaled = document.createElement("canvas");
+          scaled.width = tw; scaled.height = th;
+          const sctx = scaled.getContext("2d");
+          sctx.imageSmoothingEnabled = true;
+          sctx.imageSmoothingQuality = "high";
+          sctx.drawImage(b._cache, 0, 0, tw, th);
+          canvas = scaled;
+        }
+      }
       continue;
     }
 
