@@ -16,12 +16,12 @@ const ANALYTICS_CONSENT_KEY = "snapatlas-analytics-consent";
 const analytics = {
   /** @returns {boolean} */
   get consent() {
-    return localStorage.getItem(ANALYTICS_CONSENT_KEY) === "true";
+    try { return localStorage.getItem(ANALYTICS_CONSENT_KEY) === "true"; } catch (_) { return false; }
   },
 
   /** @param {boolean} val */
   set consent(val) {
-    localStorage.setItem(ANALYTICS_CONSENT_KEY, val ? "true" : "false");
+    try { localStorage.setItem(ANALYTICS_CONSENT_KEY, val ? "true" : "false"); } catch (_) {}
     if (val) this.track("consent_given");
   },
 
@@ -45,7 +45,9 @@ const analytics = {
  * Does nothing if the user has already accepted or declined.
  */
 function initAnalyticsBanner() {
-  if (localStorage.getItem(ANALYTICS_CONSENT_KEY) !== null) return;
+  let _consent = null;
+  try { _consent = localStorage.getItem(ANALYTICS_CONSENT_KEY); } catch (_) {}
+  if (_consent !== null) return;
   const banner = document.getElementById("analytics-banner");
   if (!banner) return;
   banner.style.display = "flex";

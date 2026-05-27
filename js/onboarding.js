@@ -31,7 +31,10 @@ function _register(tutorial) {
  * @param {string} id
  */
 function _start(id) {
-  if (localStorage.getItem(`snapatlas_ob_${id}`) || localStorage.getItem("snapatlas_project")) {
+  let _obDone = false, _hasProject = false;
+  try { _obDone = !!localStorage.getItem(`snapatlas_ob_${id}`); } catch (_) {}
+  try { _hasProject = !!localStorage.getItem("snapatlas_project"); } catch (_) {}
+  if (_obDone || _hasProject) {
     initAnalyticsBanner(); // returning user — show analytics consent directly
     return;
   }

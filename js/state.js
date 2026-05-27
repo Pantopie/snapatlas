@@ -64,7 +64,7 @@
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 const state = {
-  apiKey: localStorage.getItem("snapatlas_key") || "",
+  apiKey: (() => { try { return localStorage.getItem("snapatlas_key") || ""; } catch (_) { return ""; } })(),
   /** @type {Photo[]} */
   photos: [],
   /** @type {Region[]} */

@@ -207,7 +207,8 @@ function saveProject() {
 
 /** @returns {Promise<void>} */
 async function loadProject() {
-  const raw = localStorage.getItem("snapatlas_project");
+  let raw;
+  try { raw = localStorage.getItem("snapatlas_project"); } catch (_) { raw = null; }
   if (!raw) return;
   try {
     const saved = JSON.parse(raw);
