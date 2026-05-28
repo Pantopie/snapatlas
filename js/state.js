@@ -79,6 +79,12 @@ const state = {
   processed: false,
   /** @type {HTMLCanvasElement|null} */
   atlasCanvas: null,
+  /** @type {HTMLCanvasElement|null} pre-global-pipeline composite */
+  atlasBaseCanvas: null,
+  /** @type {boolean} bypass global pipeline in preview */
+  atlasBypass: false,
+  /** Global atlas pipeline descriptor */
+  atlas: { id: "atlas_default", pipeline: [] },
   /** @type {Object|null} */
   packedLayout: null,
   /** @type {Array} */

@@ -337,7 +337,7 @@ function openCornersModal(idx) {
 
 // ── CURVES MODAL ─────────────────────────────────────────────────────────
 /** @param {Region} region @param {number} bi */
-function initInlineCurvesEditor(region, bi) {
+function initInlineCurvesEditor(region, bi, onCommit = null) {
   const canvas = document.getElementById(`curves-cv-${bi}`);
   if (!canvas) return;
   const b   = region.pipeline[bi];
@@ -448,9 +448,13 @@ function initInlineCurvesEditor(region, bi) {
     ["r", "g", "b"].forEach(ch => {
       if (b.params[ch] && isIdentity(b.params[ch])) b.params[ch] = null;
     });
-    invalidateCacheFrom(region, bi);
-    autoRunCPU(region, bi);
-    saveProject();
+    if (onCommit) {
+      onCommit();
+    } else {
+      invalidateCacheFrom(region, bi);
+      autoRunCPU(region, bi);
+      saveProject();
+    }
   }
 
   let dragging = null;
@@ -481,8 +485,12 @@ function initInlineCurvesEditor(region, bi) {
     pts[dragging.idx] = [Math.max(lo, Math.min(hi, dx)), dy];
     setPts(pts);
     draw();
-    invalidateCacheFrom(region, bi);
-    autoRunCPU(region, bi);
+    if (onCommit) {
+      onCommit();
+    } else {
+      invalidateCacheFrom(region, bi);
+      autoRunCPU(region, bi);
+    }
   };
 
   canvas.onpointerup = () => { if (dragging) { commit(); dragging = null; } };

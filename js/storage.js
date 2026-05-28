@@ -36,13 +36,17 @@ async function _idbPut(key, value) {
 }
 /** @param {string} key @returns {Promise<*>} */
 async function _idbGet(key) {
-  const db = await _openDB();
-  return new Promise((res, rej) => {
-    const tx = db.transaction("assets", "readonly");
-    const req = tx.objectStore("assets").get(key);
-    req.onsuccess = () => res(req.result ?? null);
-    req.onerror = rej;
-  });
+  try {
+    const db = await _openDB();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction("assets", "readonly");
+      const req = tx.objectStore("assets").get(key);
+      req.onsuccess = () => res(req.result ?? null);
+      req.onerror = () => rej(req.error);
+    });
+  } catch (_) {
+    return null;
+  }
 }
 /** @returns {Promise<void>} */
 async function _idbClear() {
@@ -67,6 +71,7 @@ function _loadCanvasFromDataUrl(dataUrl) {
       c.getContext("2d").drawImage(i, 0, 0);
       res(c);
     };
+    i.onerror = () => res(null);
     i.src = dataUrl;
   });
 }
@@ -189,7 +194,8 @@ function saveProject() {
   const photos   = state.photos.map(p => ({ id: p.id, x: p.x, y: p.y }));
   const regions  = state.regions.map(r => ({ ..._regionMeta(r), hasExtracted: !!r.extracted }));
   try {
-    localStorage.setItem("snapatlas_project", JSON.stringify({ version: 3, photos, regions, processed: state.processed, regionCounter: state.regionCounter, atlasName: state.atlasName }));
+    const atlasSave = { id: state.atlas.id, pipeline: state.atlas.pipeline.map(b => ({ type: b.type, enabled: b.enabled, params: { ...b.params } })) };
+    localStorage.setItem("snapatlas_project", JSON.stringify({ version: 3, photos, regions, processed: state.processed, regionCounter: state.regionCounter, atlasName: state.atlasName, atlas: atlasSave }));
     btnNew.classList.remove("is-hidden");
     btnSaveProject.classList.remove("is-hidden");
   } catch (_) { _warnStorageFull(); }
@@ -259,6 +265,13 @@ async function loadProject() {
     state.processed = saved.processed ?? false;
     state.regionCounter = saved.regionCounter ?? state.regions.length;
     state.atlasName = saved.atlasName ?? "Untitled Atlas";
+    if (saved.atlas?.pipeline?.length) {
+      state.atlas = { id: saved.atlas.id || "atlas_default", pipeline: saved.atlas.pipeline.map(b => _hydrateBlock(b)) };
+    } else {
+      state.atlas = { id: "atlas_default", pipeline: [] };
+    }
+    state.atlasBaseCanvas = null;
+    state.atlasBypass = false;
     if (state.processed) _rebuildAtlasFromState();
 
     _restoreUIAfterLoad();
@@ -316,6 +329,7 @@ async function exportProject() {
       processed: state.processed,
       regionCounter: state.regionCounter,
       atlasName: state.atlasName,
+      atlas: { id: state.atlas.id, pipeline: state.atlas.pipeline.map(b => ({ type: b.type, enabled: b.enabled, params: { ...b.params } })) },
     });
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -346,8 +360,9 @@ async function importProject(file) {
       throw new Error("Unrecognised .snapatlas format");
     }
 
-    await _idbClear();
+    await _idbClear().catch(e => console.warn("[IDB] clear failed, continuing without cache:", e));
     state.atlasCanvas = null;
+    state.atlasBaseCanvas = null;
     state.packedLayout = null;
     state.packedStrips = [];
 
@@ -393,6 +408,13 @@ async function importProject(file) {
     state.processed = data.processed ?? false;
     state.regionCounter = data.regionCounter ?? state.regions.length;
     state.atlasName = data.atlasName ?? "Untitled Atlas";
+    if (data.atlas?.pipeline?.length) {
+      state.atlas = { id: data.atlas.id || "atlas_default", pipeline: data.atlas.pipeline.map(b => _hydrateBlock(b)) };
+    } else {
+      state.atlas = { id: "atlas_default", pipeline: [] };
+    }
+    state.atlasBaseCanvas = null;
+    state.atlasBypass = false;
     if (state.processed) _rebuildAtlasFromState();
 
     saveProject();

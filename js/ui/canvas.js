@@ -614,6 +614,9 @@ canvas.addEventListener("mousedown", (e) => {
       // 3. Photo background drag — wx/wy already computed by _mouseToPhoto
       state.movingPhoto = { photo, startWx: wx, startWy: wy, origX: photo.x, origY: photo.y };
       canvas.style.cursor = "grabbing";
+    } else {
+      // 4. Clicked canvas background (no photo) → deselect to atlas inspector
+      selectRegion(null);
     }
   } else {
     // create mode: draw new region
@@ -771,7 +774,8 @@ canvas.addEventListener("mouseup", (e) => {
   const x2 = Math.max(state.drawStart.x, cx), y2 = Math.max(state.drawStart.y, cy);
 
   if (x2 - x1 < 0.015 || y2 - y1 < 0.015) {
-    // Too small — treat as click to open region in inspector
+    // Too small — treat as click: open a region if hit, otherwise do nothing
+    // (don't deselect — user is in create mode and just clicked too lightly)
     const hp = _mouseToPhoto(e);
     if (hp) {
       const idx = _regionHitAt(hp.photo.id, hp.nx, hp.ny);
@@ -785,6 +789,14 @@ canvas.addEventListener("mouseup", (e) => {
 });
 
 window.addEventListener("resize", () => renderCanvas());
+
+// Escape → deselect region, show atlas inspector
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (e.target.matches("input, textarea, select, [contenteditable]")) return;
+  if (document.querySelector(".modal-backdrop.open")) return;
+  selectRegion(null);
+});
 
 // ── INSPECTOR RESIZE HANDLE ───────────────────────────────────────────────
 {

@@ -343,3 +343,82 @@ details[open] .insp-inherited-summary::before {
     height: 40px;
   }
 }
+
+/* ── ATLAS INSPECTOR ── */
+.atlas-region-list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--s1) var(--s3) var(--s2);
+  gap: 1px;
+}
+
+.atlas-region-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s0) var(--s1);
+  border-radius: var(--r-sm);
+  transition: background var(--dur-fast);
+
+  &:hover {
+    background: var(--bg);
+  }
+
+  &.is-excluded {
+    opacity: 0.4;
+  }
+}
+
+.atlas-region-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.atlas-region-swatch {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.atlas-region-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: var(--fs-body);
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1.4;
+
+  &:hover {
+    color: var(--accent);
+  }
+}
+
+.atlas-region-dims {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--fs-caption);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.atlas-info-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s2) var(--s3);
+  font-size: var(--fs-label);
+  color: var(--muted);
+  border-top: 1px solid var(--border2);
+
+  & svg {
+    opacity: 0.6;
+  }
+}
