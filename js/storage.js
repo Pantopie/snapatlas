@@ -125,6 +125,8 @@ function _restoreUIAfterLoad() {
   document.getElementById("snap-ctrl").classList.remove("is-hidden");
   if (state.regions.length) setTool("select");
   atlasNameInput.value = state.atlasName || "Untitled Atlas";
+  const toolbarSel = document.getElementById("output-scale-sel");
+  if (toolbarSel) toolbarSel.value = String(state.outputScale ?? 1);
   renderCanvas();
   renderInspector();
   renderPreview();
@@ -195,7 +197,7 @@ function saveProject() {
   const regions  = state.regions.map(r => ({ ..._regionMeta(r), hasExtracted: !!r.extracted }));
   try {
     const atlasSave = { id: state.atlas.id, pipeline: state.atlas.pipeline.map(b => ({ type: b.type, enabled: b.enabled, params: { ...b.params } })) };
-    localStorage.setItem("snapatlas_project", JSON.stringify({ version: 3, photos, regions, processed: state.processed, regionCounter: state.regionCounter, atlasName: state.atlasName, atlas: atlasSave }));
+    localStorage.setItem("snapatlas_project", JSON.stringify({ version: 3, photos, regions, processed: state.processed, regionCounter: state.regionCounter, atlasName: state.atlasName, atlas: atlasSave, outputScale: state.outputScale }));
     btnNew.classList.remove("is-hidden");
     btnSaveProject.classList.remove("is-hidden");
   } catch (_) { _warnStorageFull(); }
@@ -270,6 +272,7 @@ async function loadProject() {
     } else {
       state.atlas = { id: "atlas_default", pipeline: [] };
     }
+    state.outputScale = Math.min(1, saved.outputScale ?? 1);
     state.atlasBaseCanvas = null;
     state.atlasBypass = false;
     if (state.processed) _rebuildAtlasFromState();
@@ -330,6 +333,7 @@ async function exportProject() {
       regionCounter: state.regionCounter,
       atlasName: state.atlasName,
       atlas: { id: state.atlas.id, pipeline: state.atlas.pipeline.map(b => ({ type: b.type, enabled: b.enabled, params: { ...b.params } })) },
+      outputScale: state.outputScale,
     });
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -413,6 +417,7 @@ async function importProject(file) {
     } else {
       state.atlas = { id: "atlas_default", pipeline: [] };
     }
+    state.outputScale = Math.min(1, data.outputScale ?? 1);
     state.atlasBaseCanvas = null;
     state.atlasBypass = false;
     if (state.processed) _rebuildAtlasFromState();

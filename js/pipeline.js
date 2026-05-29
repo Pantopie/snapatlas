@@ -28,6 +28,7 @@
  * @property {boolean}       isAsync
  * @property {boolean}       hasConfigure
  * @property {boolean}       [hidden]
+ * @property {boolean}       [atlasOnly]
  * @property {Object}        defaultParams
  * @property {ParamUIEntry[]} paramsUI
  */
@@ -246,6 +247,44 @@ const BLOCK_DEFS = {
       { key: "noiseIntY", group: "noise",   type: "range", label: "V Noise",      min: 0,    max: 100, step: 5,  suffix: "%",  showIf: { axes: ["y", "xy"] } },
       { key: "noiseScaleY", group: "noise", type: "range", label: "V Noise Scale", min: 1,    max: 20,  step: 1,  suffix: "",   showIf: { axes: ["y", "xy"] } },
       { key: "debugTile", group: "debug", type: "toggle", label: "Show debug tile" },
+    ],
+  },
+  stylize: {
+    label: "Stylize",
+    icon: "wand-sparkles",
+    desc: "Palette reduction, bit-depth, dithering",
+    category: "color",
+    isAsync: false,
+    hasConfigure: false,
+    atlasOnly: true,
+    defaultParams: { fixedPalette: "none", bitDepth: 8, dither: "bayer4", saturation: 100 },
+    paramsUI: [
+      { key: "fixedPalette", type: "select", label: "Palette", options: [
+        { value: "none",          label: "None"             },
+        { value: "gameboy",       label: "Game Boy (4)"     },
+        { value: "gbpocket",      label: "GB Pocket (4)"    },
+        { value: "virtualboy",    label: "Virtual Boy (4)"  },
+        { value: "c64",           label: "C64 (16)"         },
+        { value: "zxspectrum",    label: "ZX Spectrum (15)" },
+        { value: "msx",           label: "MSX (16)"         },
+        { value: "cpc",           label: "Amstrad CPC (27)" },
+        { value: "cga",           label: "CGA (16)"         },
+        { value: "ega",           label: "EGA (64)"         },
+        { value: "nes",           label: "NES (64)"         },
+        { value: "pico8",         label: "Pico-8 (16)"      },
+        { value: "sweetie16",     label: "Sweetie 16 (16)"  },
+        { value: "dawnbringer16", label: "Dawnbringer 16"   },
+        { value: "dawnbringer32", label: "Dawnbringer 32"   },
+      ]},
+      { key: "bitDepth", type: "range", label: "Bit depth (8 = off)", min: 1, max: 8, step: 1, suffix: "",
+        showIf: { fixedPalette: ["none"] } },
+      { key: "dither", type: "select", label: "Dither", options: [
+        { value: "none",   label: "None"           },
+        { value: "bayer2", label: "Bayer 2×2"      },
+        { value: "bayer4", label: "Bayer 4×4"      },
+        { value: "fs",     label: "Floyd-Steinberg" },
+      ]},
+      { key: "saturation", type: "range", label: "Saturation", min: 0, max: 200, step: 1, suffix: "%" },
     ],
   },
   mirror_tile: {
@@ -601,4 +640,5 @@ const BLOCK_RUNNERS = {
   ai_seamless:     aiSeamlessRunner,
   seamless_offset: seamlessOffsetRunner,
   mirror_tile:     mirrorTileRunner,
+  stylize:         stylizeRunner,
 };

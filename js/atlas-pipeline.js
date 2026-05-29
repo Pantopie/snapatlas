@@ -6,7 +6,7 @@
  * Block types allowed in the global atlas pipeline (CPU-only).
  * @type {Set<string>}
  */
-const ATLAS_BLOCK_TYPES = new Set(["levels", "curves", "hsl", "highpass"]);
+const ATLAS_BLOCK_TYPES = new Set(["levels", "curves", "hsl", "highpass", "stylize"]);
 
 /**
  * Invalidate atlas pipeline block caches from a given index.

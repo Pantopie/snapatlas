@@ -101,7 +101,31 @@ const state = {
   /** @type {string[]} */
   pvSelected: [],
   atlasName: "Untitled Atlas",
+  /** Output resolution multiplier — one of OUTPUT_SCALE_OPTIONS values */
+  outputScale: 1,
 };
+
+// ── OUTPUT SCALE ──────────────────────────────────────────────────────────────
+/** @type {{ value: number, label: string }[]} */
+const OUTPUT_SCALE_OPTIONS = [
+  { value: 0.25, label: "0.25×" },
+  { value: 0.5,  label: "0.5×"  },
+  { value: 1,    label: "1×"    },
+];
+
+/**
+ * Generate a `<select>` element string for the output scale picker.
+ * @param {string} id          - Element id
+ * @param {number} selectedVal - Currently selected value
+ * @param {string} [cls]       - Extra CSS class (defaults to "output-scale-sel")
+ * @returns {string}
+ */
+function outputScaleSelectHTML(id, selectedVal, cls = "output-scale-sel") {
+  const opts = OUTPUT_SCALE_OPTIONS.map(o =>
+    `<option value="${o.value}"${o.value === selectedVal ? " selected" : ""}>${o.label}</option>`
+  ).join("");
+  return `<select id="${id}" class="${cls}" title="Output resolution multiplier">${opts}</select>`;
+}
 
 // ── PHOTO HELPERS ──────────────────────────────────────────────────────────
 /** @param {string} id @returns {Photo|null} */

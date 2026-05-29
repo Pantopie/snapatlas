@@ -402,6 +402,7 @@
               <option value="128">128px</option>
             </select>
           </div>
+          <select id="output-scale-sel" class="output-scale-sel" title="Output resolution multiplier"></select>
         </div>
         <canvas id="preview-canvas" style="display: none"></canvas>
         <canvas id="cube-canvas" style="display: none"></canvas>
@@ -749,105 +750,16 @@
             <!-- Resolution section -->
             <div class="export-section">
               <h2 class="export-section-title">Resolution</h2>
-              <!-- Atlas mode: size select -->
-              <div class="export-row" id="exportSizeRow">
-                <label class="export-label">Size</label>
-                <select class="export-select" id="exportSize"></select>
-                <label
-                  class="export-pot-label"
-                  title="Atlas is always a power-of-two square"
-                >
-                  <input type="checkbox" checked disabled /> POT
-                </label>
-              </div>
-              <!-- Regions mode: scale select -->
-              <div class="export-row" id="exportScaleRow" style="display: none">
+              <div class="export-row">
                 <label class="export-label">Scale</label>
-                <select class="export-select" id="exportScale">
-                  <option value="1">Full (1×)</option>
-                  <option value="0.5">Half (0.5×)</option>
-                  <option value="0.25">Quarter (0.25×)</option>
-                </select>
+                <select id="exportScaleOverride" class="output-scale-sel"></select>
+                <span id="exportOutputInfo" class="export-info export-info--dims">—</span>
               </div>
               <div class="export-row">
                 <label class="export-label">Filter</label>
                 <select class="export-select" id="exportFilter">
                   <option value="bilinear">Bilinear</option>
                   <option value="nearest">Nearest (pixel art)</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Stylize section -->
-            <div class="export-section">
-              <h2 class="export-section-title">Stylize</h2>
-              <label class="block-param">
-                <span class="block-param-label">Saturation</span>
-                <input
-                  type="range"
-                  class="block-range"
-                  id="exportSaturation"
-                  min="0"
-                  max="200"
-                  value="100"
-                  step="1"
-                />
-                <span class="block-param-val" id="exportSaturationVal"
-                  >100%</span
-                >
-              </label>
-              <label class="block-param" id="exportBitDepthRow">
-                <span class="block-param-label">Bit depth</span>
-                <input
-                  type="range"
-                  class="block-range"
-                  id="exportBitDepth"
-                  min="1"
-                  max="8"
-                  value="8"
-                  step="1"
-                />
-                <span class="block-param-val" id="exportBitDepthVal">off</span>
-              </label>
-              <div
-                class="export-row"
-                id="exportDitherRow"
-                style="display: none"
-              >
-                <label class="export-label">Dither</label>
-                <select class="export-select" id="exportDither">
-                  <option value="none">None</option>
-                  <option value="bayer2">Bayer 2×2</option>
-                  <option value="bayer4" selected>Bayer 4×4</option>
-                  <option value="fs">Floyd-Steinberg</option>
-                </select>
-              </div>
-              <div class="export-row">
-                <label class="export-label">Palette</label>
-                <select class="export-select" id="exportFixedPalette">
-                  <option value="none">None</option>
-                  <optgroup label="Handhelds">
-                    <option value="gameboy">Game Boy (4)</option>
-                    <option value="gbpocket">GB Pocket (4)</option>
-                    <option value="virtualboy">Virtual Boy (4)</option>
-                  </optgroup>
-                  <optgroup label="Home computers">
-                    <option value="c64">C64 (16)</option>
-                    <option value="zxspectrum">ZX Spectrum (15)</option>
-                    <option value="msx">MSX (16)</option>
-                    <option value="cpc">Amstrad CPC (27)</option>
-                  </optgroup>
-                  <optgroup label="PC / Arcade">
-                    <option value="cga">CGA (16)</option>
-                    <option value="ega">EGA (64)</option>
-                    <option value="nes">NES (64)</option>
-                  </optgroup>
-                  <optgroup label="Community">
-                    <option value="pico8">Pico-8 (16)</option>
-                    <option value="sweetie16">Sweetie 16 (16)</option>
-                    <option value="dawnbringer16">Dawnbringer 16 (16)</option>
-                    <option value="dawnbringer32">Dawnbringer 32 (32)</option>
-                  </optgroup>
                 </select>
               </div>
             </div>

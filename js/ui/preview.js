@@ -198,6 +198,32 @@ btnAtlasBypass?.addEventListener("click", () => {
   renderPreview();
 });
 
+/**
+ * Shared handler for all output-scale selectors (toolbar + atlas inspector).
+ * Updates state, rebuilds atlas, re-renders inspector, and saves.
+ * @param {number} val
+ */
+function applyOutputScale(val) {
+  state.outputScale = val;
+  // Sync the toolbar selector (inspector selector is inside inspectorEl and gets
+  // re-rendered by renderInspector, so no manual sync needed there)
+  const toolbarSel = document.getElementById("output-scale-sel");
+  if (toolbarSel) toolbarSel.value = String(val);
+  rebuildAtlas();
+  renderInspector();
+  saveProject();
+}
+
+// Populate the toolbar select from OUTPUT_SCALE_OPTIONS and wire its handler
+;(function _initOutputScaleSel() {
+  const sel = document.getElementById("output-scale-sel");
+  if (!sel) return;
+  sel.innerHTML = OUTPUT_SCALE_OPTIONS.map(o =>
+    `<option value="${o.value}"${o.value === (state.outputScale ?? 1) ? " selected" : ""}>${o.label}</option>`
+  ).join("");
+  sel.addEventListener("change", e => applyOutputScale(parseFloat(e.target.value)));
+})();
+
 // Window-level handlers for pvResizing (so drag stays tracked outside canvas)
 window.addEventListener("mousemove", (e) => {
   if (!state.pvResizing) return;
@@ -422,7 +448,8 @@ function renderPreview() {
 
   pvHint.style.display = "none";
   pvCanvas.style.display = "block";
-  pvSize.textContent = `${atlasSize} × ${atlasSize}`;
+  const scaledAtlasSize = state.atlasCanvas?.width ?? atlasSize;
+  pvSize.textContent = `${scaledAtlasSize} × ${scaledAtlasSize}`;
 
   // Auto-fit whenever the atlas size changes (new layout, first render, etc.)
   if (atlasSize !== state.pvAtlasSize) {

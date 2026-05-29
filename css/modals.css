@@ -417,6 +417,17 @@ select.export-select {
   flex-shrink: 0;
 }
 
+.export-info {
+  font-size: var(--fs-label);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.export-info--dims {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 /* ── CURVES MODAL ── */
 .curves-inline {
   display: flex;

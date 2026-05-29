@@ -98,10 +98,12 @@ function _rebuildAtlasFromState() {
   state.packedLayout = layout;
   state.packedStrips = selected;
   const { atlasSize, placements } = layout;
+  const scale = state.outputScale ?? 1;
+  const scaledSize = Math.max(1, Math.round(atlasSize * scale));
   const c = document.createElement("canvas");
-  c.width = atlasSize; c.height = atlasSize;
+  c.width = scaledSize; c.height = scaledSize;
   const actx = c.getContext("2d");
-  selected.forEach((r, i) => _drawOnAtlas(actx, r.extracted, placements[i]));
+  selected.forEach((r, i) => _drawOnAtlas(actx, r.extracted, placements[i], 0, 0, scale));
   state.atlasBaseCanvas = c;
   state.atlasCanvas = c; // pre-pipeline fallback until pipeline completes
   invalidateAtlasFrom(state.atlas, 0); // base changed — all atlas blocks are stale
@@ -567,17 +569,34 @@ function _renderAtlasInspector() {
     return cats;
   })();
 
+  const outputScale  = state.outputScale ?? 1;
+  const scaledSize   = atlasSize ? Math.max(1, Math.round(atlasSize * outputScale)) : 0;
+
+  const sizeHTML = atlasSize ? `
+    <div class="atlas-size-section">
+      <div class="atlas-size-row">
+        <span class="atlas-size-label">Native</span>
+        <span class="atlas-size-val">${atlasSize} × ${atlasSize} px</span>
+      </div>
+      <div class="atlas-size-row">
+        <span class="atlas-size-label">Output</span>
+        <span class="atlas-size-val atlas-size-val--accent">${scaledSize} × ${scaledSize} px</span>
+        ${outputScaleSelectHTML("atlas-scale-sel", outputScale)}
+      </div>
+    </div>` : "";
+
   const footerHTML = atlasSize
-    ? `<div class="atlas-info-footer">${Lucide.iconHTML('package', 12)} ${atlasSize} × ${atlasSize} px · ${included} texture${included !== 1 ? "s" : ""}</div>`
+    ? `<div class="atlas-info-footer">${Lucide.iconHTML('package', 12)} ${included} texture${included !== 1 ? "s" : ""} · ${scaledSize} × ${scaledSize} px output</div>`
     : "";
 
   inspectorEl.innerHTML = `
     <div class="insp-header" style="border-left:3px solid var(--border2)">
       <div class="insp-meta">
         <div class="insp-label" style="cursor:default;display:flex;align-items:center;gap:var(--s1)">${Lucide.iconHTML('layout-grid', 14)} Texture Atlas</div>
-        <div class="insp-dims" style="color:var(--muted);font-size:var(--fs-label)">${atlasSize ? `${atlasSize}×${atlasSize} · ${included}/${total} regions` : "No atlas built yet"}</div>
+        <div class="insp-dims" style="color:var(--muted);font-size:var(--fs-label)">${atlasSize ? `${included}/${total} regions` : "No atlas built yet"}</div>
       </div>
     </div>
+    ${sizeHTML}
     <h2 class="insp-pipeline-label">Regions <span class="chip chip-surface">${total}</span></h2>
     <div class="atlas-region-list" id="atlas-region-list">${regionListHTML}</div>
     <h2 class="insp-pipeline-label">Global Pipeline</h2>
@@ -601,6 +620,11 @@ function _renderAtlasInspector() {
         () => { invalidateAtlasFrom(atlas, bi); _runAtlasPipelineAndStore(); saveProject(); }
       );
     }
+  });
+
+  // Output scale selector — delegates to shared handler (syncs toolbar, rebuilds, saves)
+  inspectorEl.querySelector("#atlas-scale-sel")?.addEventListener("change", e => {
+    applyOutputScale(parseFloat(e.target.value));
   });
 
   // Region list events
@@ -835,7 +859,7 @@ function _renderRegionInspector(i) {
     <button class="block-footer-btn" id="insp-add-block">${Lucide.iconHTML('plus')} Add Block</button>
     <div class="block-picker" id="insp-block-picker" style="display:none">
       ${BLOCK_CATEGORIES.map(cat => {
-        const items = Object.entries(BLOCK_DEFS).filter(([, def]) => !def.hidden && def.category === cat.key);
+        const items = Object.entries(BLOCK_DEFS).filter(([, def]) => !def.hidden && !def.atlasOnly && def.category === cat.key);
         if (!items.length) return "";
         return `<div class="block-picker-cat">${cat.label}</div>` +
           items.map(([type, def]) => `<button class="block-picker-item" data-type="${type}"><span class="picker-item-icon">${Lucide.iconHTML(def.icon)}</span><span class="picker-item-label">${def.label}${def.isAsync ? ' <span class="chip chip-accent">AI</span>' : ""}</span>${def.desc ? `<span class="picker-item-desc">${def.desc}</span>` : ""}</button>`).join("");
