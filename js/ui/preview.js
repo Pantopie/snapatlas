@@ -183,14 +183,15 @@ const btnAtlasBypass = document.getElementById("btn-atlas-bypass");
 /** Update the bypass button's enabled/active/icon state. */
 function _updateAtlasBypassBtn() {
   if (!btnAtlasBypass) return;
-  // Bypass is useful whenever the atlas canvas exists — lets users see
-  // per-region pipeline output vs the composited atlas output.
-  const hasAtlas = !!state.atlasCanvas;
-  btnAtlasBypass.disabled = !hasAtlas;
-  btnAtlasBypass.classList.toggle("active", state.atlasBypass);
+  // Only meaningful when there are enabled global blocks to toggle on/off
+  const hasEnabledBlocks = state.atlas.pipeline.some(b => b.enabled);
+  btnAtlasBypass.disabled = !hasEnabledBlocks;
+  if (!hasEnabledBlocks) state.atlasBypass = false;
+  // Active = blocks are applied (the normal/on state); inactive = bypassed
+  btnAtlasBypass.classList.toggle("active", !state.atlasBypass);
   btnAtlasBypass.title = state.atlasBypass
-    ? "Showing per-region output — click to show composited atlas"
-    : "Showing composited atlas — click to show per-region output";
+    ? "Global blocks bypassed — click to re-apply"
+    : "Global blocks applied — click to preview without";
 }
 
 btnAtlasBypass?.addEventListener("click", () => {

@@ -1069,9 +1069,11 @@ function _yieldToEventLoop() { return new Promise(r => setTimeout(r, 0)); }
 /**
  * @param {HTMLCanvasElement} src
  * @param {{ bitDepth?: number, dither?: string, saturation?: number, fixedPalette?: string }} s
- * @returns {Promise<HTMLCanvasElement>}
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<HTMLCanvasElement|null>} null if aborted
  */
-async function exportApplyStylize(src, s) {
+async function exportApplyStylize(src, s, signal) {
+  if (signal?.aborted) return null;
   const { bitDepth = 8, dither = "none", saturation = 100, fixedPalette = "none" } = s;
   const pal       = fixedPalette !== "none" ? _PALETTES[fixedPalette] : null;
   const doQuant   = pal != null || bitDepth < 8;
@@ -1113,7 +1115,7 @@ async function exportApplyStylize(src, s) {
         const mat = dither === "bayer4" ? _BAYER_4 : _BAYER_2;
         const N   = dither === "bayer4" ? 4 : 2;
         for (let y = 0; y < H; y++) {
-          if (y % CHUNK === 0 && y > 0) await _yieldToEventLoop();
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
           for (let x = 0; x < W; x++) {
             const pi = (y * W + x) * 4;
             const t  = mat[(y % N) * N + (x % N)] * spread;
@@ -1130,7 +1132,7 @@ async function exportApplyStylize(src, s) {
         const R = new Float32Array(n), G = new Float32Array(n), B = new Float32Array(n);
         for (let i = 0; i < n; i++) { R[i] = d[i*4]; G[i] = d[i*4+1]; B[i] = d[i*4+2]; }
         for (let y = 0; y < H; y++) {
-          if (y % CHUNK === 0 && y > 0) await _yieldToEventLoop();
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
           for (let x = 0; x < W; x++) {
             const i  = y * W + x;
             const [qr, qg, qb] = _nearestPalColor(R[i], G[i], B[i], pal);
@@ -1144,7 +1146,7 @@ async function exportApplyStylize(src, s) {
         }
       } else {
         for (let y = 0; y < H; y++) {
-          if (y % CHUNK === 0 && y > 0) await _yieldToEventLoop();
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
           for (let x = 0; x < W; x++) {
             const i = (y * W + x) * 4;
             const [qr, qg, qb] = _nearestPalColor(d[i], d[i+1], d[i+2], pal);
@@ -1158,7 +1160,7 @@ async function exportApplyStylize(src, s) {
         const mat = dither === "bayer4" ? _BAYER_4 : _BAYER_2;
         const N   = dither === "bayer4" ? 4 : 2;
         for (let y = 0; y < H; y++) {
-          if (y % CHUNK === 0 && y > 0) await _yieldToEventLoop();
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
           for (let x = 0; x < W; x++) {
             const pi = (y * W + x) * 4;
             const t  = mat[(y % N) * N + (x % N)] * step;
@@ -1172,7 +1174,7 @@ async function exportApplyStylize(src, s) {
         const R = new Float32Array(n), G = new Float32Array(n), B = new Float32Array(n);
         for (let i = 0; i < n; i++) { R[i] = d[i*4]; G[i] = d[i*4+1]; B[i] = d[i*4+2]; }
         for (let y = 0; y < H; y++) {
-          if (y % CHUNK === 0 && y > 0) await _yieldToEventLoop();
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
           for (let x = 0; x < W; x++) {
             const i  = y * W + x;
             const qr = _qsnapBits(R[i], bitDepth), qg = _qsnapBits(G[i], bitDepth), qb = _qsnapBits(B[i], bitDepth);
@@ -1186,7 +1188,7 @@ async function exportApplyStylize(src, s) {
         }
       } else {
         for (let y = 0; y < H; y++) {
-          if (y % CHUNK === 0 && y > 0) await _yieldToEventLoop();
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
           for (let x = 0; x < W; x++) {
             const i = (y * W + x) * 4;
             d[i]   = _qsnapBits(d[i],   bitDepth);
@@ -1208,8 +1210,8 @@ async function exportApplyStylize(src, s) {
  * @param {PipelineCtx} _ctx
  * @returns {Promise<HTMLCanvasElement>}
  */
-function stylizeRunner(input, params, _ctx) {
-  return exportApplyStylize(input, params);
+function stylizeRunner(input, params, ctx) {
+  return exportApplyStylize(input, params, ctx?.signal);
 }
 
 // ── Albedo Compress ──────────────────────────────────────────────────────────

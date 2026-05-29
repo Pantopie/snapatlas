@@ -220,11 +220,15 @@ async function loadProject() {
   if (!raw) return;
   try {
     const saved = JSON.parse(raw);
+    const totalRegions = (saved.regions ?? []).length;
 
-    // ── Migration: v1/v2 single-photo format ──────────────────────────────
+    setStatus("running", "Restoring project…");
+    setProgress(0);
+
+    // ── Phase 1: photos ───────────────────────────────────────────────────
     if (!saved.photos) {
       const srcDataUrl = saved.imageData || (await _idbGet("source"));
-      if (!srcDataUrl) return;
+      if (!srcDataUrl) { setStatus("", ""); setProgress(0); return; }
       const img = await _loadImageFromDataUrl(srcDataUrl);
       const legacyId = "photo_legacy";
       state.photos = [{ id: legacyId, img, x: 0, y: 0, _savedToIdb: false }];
@@ -233,7 +237,7 @@ async function loadProject() {
       saved.photos  = [{ id: legacyId, x: 0, y: 0 }];
       saved.regions = regions;
     } else {
-      // New multi-photo format
+      setStatus("running", "Loading photos…");
       const loadedPhotos = await Promise.all(
         saved.photos.map(async p => {
           const dataUrl = await _idbGet(`source_${p.id}`);
@@ -243,11 +247,14 @@ async function loadProject() {
         }),
       );
       state.photos = loadedPhotos.filter(Boolean);
-      if (!state.photos.length) return;
+      if (!state.photos.length) { setStatus("", ""); setProgress(0); return; }
     }
+    setProgress(20);
 
+    // ── Phase 2: regions (extracted canvases + block caches from IDB) ─────
+    setStatus("running", `Loading ${totalRegions} region${totalRegions !== 1 ? "s" : ""}…`);
     state.regions = await Promise.all(
-      (saved.regions ?? []).map(async r => {
+      (saved.regions ?? []).map(async (r, ri) => {
         let extracted = null;
         if (r.hasExtracted) {
           const data = await _idbGet(`extracted_${r.id}`);
@@ -260,10 +267,13 @@ async function loadProject() {
             return data ? _loadCanvasFromDataUrl(data) : null;
           }),
         );
+        setProgress(20 + Math.round((ri + 1) / Math.max(1, totalRegions) * 40));
         return _hydrateRegion(r, extracted, blockCaches);
       }),
     );
+    setProgress(60);
 
+    // ── Phase 3: state fields + atlas ─────────────────────────────────────
     state.processed = saved.processed ?? false;
     state.regionCounter = saved.regionCounter ?? state.regions.length;
     state.atlasName = saved.atlasName ?? "Untitled Atlas";
@@ -278,15 +288,29 @@ async function loadProject() {
     if (state.processed) _rebuildAtlasFromState();
 
     _restoreUIAfterLoad();
-    // CPU block caches are not persisted — re-run them now so intermediates are
-    // ready. Async block caches were restored from IDB above, so only the fast
-    // CPU stages will actually execute.
-    for (const r of state.regions) await autoRunCPU(r, 0);
+    setProgress(70);
+
+    // ── Phase 4: CPU pipeline re-runs ─────────────────────────────────────
+    // CPU block caches are not persisted — re-run them now so intermediates
+    // are ready. Async block caches were restored from IDB above, so only the
+    // fast CPU stages will actually execute.
+    const toRun = state.regions.filter(r => r.selected);
+    for (let i = 0; i < toRun.length; i++) {
+      setStatus("running", `Processing region ${i + 1} / ${toRun.length}…`);
+      setProgress(70 + Math.round((i + 1) / Math.max(1, toRun.length) * 28));
+      await autoRunCPU(toRun[i], 0);
+    }
+
     renderInspector();
+    setProgress(100);
     setStatus("", "");
+    // Reset bar after a short beat so it doesn't snap away instantly
+    setTimeout(() => setProgress(0), 300);
     showToast("Project restored");
   } catch (e) {
     console.warn("Failed to restore project:", e);
+    setStatus("", "");
+    setProgress(0);
     localStorage.removeItem("snapatlas_project");
   }
 }

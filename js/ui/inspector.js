@@ -118,18 +118,44 @@ function rebuildAtlas() {
 // ── ATLAS PIPELINE EXECUTION ──────────────────────────────────────────────
 
 let _atlasPipelineGen = 0;
+/** @type {AbortController | null} */
+let _atlasPipelineAbort = null;
 
 /** Run the global atlas pipeline and store the result in state. */
 async function _runAtlasPipelineAndStore() {
   if (!state.atlasBaseCanvas) return;
+  // Cancel any in-flight run so its async yields abort immediately
+  _atlasPipelineAbort?.abort();
+  const ctrl = new AbortController();
+  _atlasPipelineAbort = ctrl;
   const gen = ++_atlasPipelineGen;
-  const result = await runAtlasPipeline(state.atlas, state.atlasBaseCanvas);
+  const result = await runAtlasPipeline(state.atlas, state.atlasBaseCanvas, ctrl.signal);
   if (gen !== _atlasPipelineGen) return; // a newer run has taken over
   state.atlasCanvas = result || state.atlasBaseCanvas;
   renderPreview();
   // Update block preview canvases in-place without rebuilding the inspector DOM.
   // A full renderInspector() would destroy range sliders mid-drag.
   _refreshAtlasBlockPreviews();
+}
+
+/**
+ * Toggle the running visual on a single atlas block card without re-rendering
+ * the whole inspector (which would destroy active range sliders).
+ * Called from runAtlasPipeline before/after each block executes.
+ * @param {number} bi   Block index
+ * @param {boolean} on  true = show spinner, false = restore icon
+ */
+function _refreshAtlasBlockRunningState(bi, on) {
+  if (state.inspectedIdx !== null) return; // atlas inspector not visible
+  const item = inspectorEl.querySelector(`.block-item[data-block="${bi}"]`);
+  if (!item) return;
+  item.classList.toggle("running", on);
+  const iconEl = item.querySelector(".block-icon");
+  if (!iconEl) return;
+  const def = BLOCK_DEFS[state.atlas.pipeline[bi]?.type];
+  iconEl.innerHTML = on
+    ? `<span class="block-spinner">${Lucide.iconHTML("loader", 14)}</span>`
+    : Lucide.iconHTML(def?.icon ?? "square");
 }
 
 /**
@@ -662,8 +688,11 @@ function _wireAtlasBlockEvents(atlas) {
     btn.addEventListener("click", e => {
       const bi = +e.currentTarget.dataset.block;
       pipeline[bi].enabled = !pipeline[bi].enabled;
-      invalidate(bi);
-      run(); // async; _runAtlasPipelineAndStore refreshes inspector when done
+      // Preserve this block's own cache — only downstream blocks need to re-run.
+      // This means re-enabling a block (e.g. stylize) reuses its cached output
+      // instead of re-running the full pixel loop from scratch.
+      invalidate(bi + 1);
+      run();
       renderInspector();
       saveProject();
     });
@@ -1133,12 +1162,12 @@ function _renderRegionInspector(i) {
     btn.addEventListener("click", async e => {
       const bi = +e.currentTarget.dataset.block;
       r.pipeline[bi].enabled = !r.pipeline[bi].enabled;
-      // Async blocks own their cache independently of enabled state — only
-      // invalidate downstream so the cached result is preserved for display.
-      const isAsync = BLOCK_DEFS[r.pipeline[bi].type]?.isAsync;
-      invalidateCacheFrom(r, isAsync ? bi + 1 : bi);
+      // Always preserve the toggled block's own cache — only downstream blocks
+      // need to re-run. Re-enabling restores the cached output instantly instead
+      // of re-running the full block computation from scratch.
+      invalidateCacheFrom(r, bi + 1);
       renderInspector();
-      await autoRunCPU(r, isAsync ? bi + 1 : bi);
+      await autoRunCPU(r, bi + 1);
       renderInspector();
       saveProject();
     });

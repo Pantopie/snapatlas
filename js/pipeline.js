@@ -251,7 +251,7 @@ const BLOCK_DEFS = {
   },
   stylize: {
     label: "Stylize",
-    icon: "wand-sparkles",
+    icon: "sparkles",
     desc: "Palette reduction, bit-depth, dithering",
     category: "color",
     isAsync: false,
@@ -564,21 +564,27 @@ async function runFromBlock(region, blockIdx) {
  * @returns {Promise<void>}
  */
 async function autoRunCPU(region, fromIdx) {
-  let lastCPU = -1;
+  // Find the last block worth running:
+  //   • dirty CPU block  → must re-run
+  //   • async block with a cache → apply as passthrough (use cached AI result)
+  // Both are included so that async caches restored from IDB on project load
+  // are always reflected in region.extracted without requiring a manual re-run.
+  let lastTarget = -1;
   for (let i = fromIdx; i < region.pipeline.length; i++) {
     const b = region.pipeline[i];
     if (!b.enabled) continue;
-    if (BLOCK_DEFS[b.type]?.isAsync) continue; // skip async, keep scanning for CPU blocks after
-    if (b._dirty) lastCPU = i;
+    const isAsync = BLOCK_DEFS[b.type]?.isAsync;
+    if (!isAsync && b._dirty)  lastTarget = i; // dirty CPU block
+    if ( isAsync && b._cache)  lastTarget = i; // async block with restored cache
   }
 
-  if (lastCPU < 0) {
+  if (lastTarget < 0) {
     if (region.parentId) {
-      // Variant with no CPU blocks: set extracted from parent crop.
+      // Variant with no blocks to process: set extracted from parent crop.
       const vc = _variantInputCanvas(region);
       if (vc) { region.extracted = vc; rebuildAtlas(); }
     } else {
-      // Parent with no dirty CPU blocks: still cascade in case variants need refresh.
+      // Parent with nothing to do: still cascade in case variants need refresh.
       getVariants(region).forEach(v => { invalidateCacheFrom(v, 0); autoRunCPU(v, 0); });
     }
     renderPreview();
@@ -591,7 +597,7 @@ async function autoRunCPU(region, fromIdx) {
 
   try {
     const ctx = { region, state, block: null, ai: null, signal: null };
-    const result = await runPipelineUpTo(region, lastCPU, ctx);
+    const result = await runPipelineUpTo(region, lastTarget, ctx);
     if (!result) return;
 
     region.extracted = result;
