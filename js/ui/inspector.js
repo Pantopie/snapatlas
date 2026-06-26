@@ -118,21 +118,36 @@ function rebuildAtlas() {
 // ── ATLAS PIPELINE EXECUTION ──────────────────────────────────────────────
 
 let _atlasPipelineGen = 0;
+/** @type {number} Gen of the last pipeline whose result was applied to state.atlasCanvas */
+let _atlasCanvasGen = 0;
 /** @type {AbortController | null} */
 let _atlasPipelineAbort = null;
 
 /** Run the global atlas pipeline and store the result in state. */
 async function _runAtlasPipelineAndStore() {
   if (!state.atlasBaseCanvas) return;
-  // Cancel any in-flight run so its async yields abort immediately
   _atlasPipelineAbort?.abort();
   const ctrl = new AbortController();
   _atlasPipelineAbort = ctrl;
   const gen = ++_atlasPipelineGen;
   const result = await runAtlasPipeline(state.atlas, state.atlasBaseCanvas, ctrl.signal);
-  if (gen !== _atlasPipelineGen) return; // a newer run has taken over
+  // Only discard if a newer pipeline has already applied its result to atlasCanvas.
+  if (gen !== _atlasPipelineGen && _atlasCanvasGen > gen) return;
   state.atlasCanvas = result || state.atlasBaseCanvas;
+  _atlasCanvasGen = gen;
   renderPreview();
+  // If the export modal is open, refresh its preview so it picks up the new atlas.
+  // In regions mode, rebuild the per-region canvases from the freshly pipelined atlas
+  // so the export always shows the correct global-blocks result.
+  if (document.getElementById("exportModalBackdrop")?.classList.contains("open")) {
+    if (typeof _prevScaled !== "undefined") { _prevScaled = null; } // bust atlas display cache
+    if (typeof _exportMode !== "undefined" && _exportMode === "regions") {
+      if (typeof _buildStyledRegions === "function") _buildStyledRegions();
+    } else {
+      if (typeof _renderPrevCanvas === "function") _renderPrevCanvas();
+    }
+    if (typeof _scheduleFileSizeEst === "function") _scheduleFileSizeEst();
+  }
   // Update block preview canvases in-place without rebuilding the inspector DOM.
   // A full renderInspector() would destroy range sliders mid-drag.
   _refreshAtlasBlockPreviews();
