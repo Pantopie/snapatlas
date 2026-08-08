@@ -28,6 +28,7 @@
  * @property {boolean}       isAsync
  * @property {boolean}       hasConfigure
  * @property {boolean}       [hidden]
+ * @property {boolean}       [atlasOnly]
  * @property {Object}        defaultParams
  * @property {ParamUIEntry[]} paramsUI
  */
@@ -248,6 +249,44 @@ const BLOCK_DEFS = {
       { key: "debugTile", group: "debug", type: "toggle", label: "Show debug tile" },
     ],
   },
+  stylize: {
+    label: "Stylize",
+    icon: "sparkles",
+    desc: "Palette reduction, bit-depth, dithering",
+    category: "color",
+    isAsync: false,
+    hasConfigure: false,
+    atlasOnly: true,
+    defaultParams: { fixedPalette: "none", bitDepth: 8, dither: "bayer4", saturation: 100 },
+    paramsUI: [
+      { key: "fixedPalette", type: "select", label: "Palette", options: [
+        { value: "none",          label: "None"             },
+        { value: "gameboy",       label: "Game Boy (4)"     },
+        { value: "gbpocket",      label: "GB Pocket (4)"    },
+        { value: "virtualboy",    label: "Virtual Boy (4)"  },
+        { value: "c64",           label: "C64 (16)"         },
+        { value: "zxspectrum",    label: "ZX Spectrum (15)" },
+        { value: "msx",           label: "MSX (16)"         },
+        { value: "cpc",           label: "Amstrad CPC (27)" },
+        { value: "cga",           label: "CGA (16)"         },
+        { value: "ega",           label: "EGA (64)"         },
+        { value: "nes",           label: "NES (64)"         },
+        { value: "pico8",         label: "Pico-8 (16)"      },
+        { value: "sweetie16",     label: "Sweetie 16 (16)"  },
+        { value: "dawnbringer16", label: "Dawnbringer 16"   },
+        { value: "dawnbringer32", label: "Dawnbringer 32"   },
+      ]},
+      { key: "bitDepth", type: "range", label: "Bit depth (8 = off)", min: 1, max: 8, step: 1, suffix: "",
+        showIf: { fixedPalette: ["none"] } },
+      { key: "dither", type: "select", label: "Dither", options: [
+        { value: "none",   label: "None"           },
+        { value: "bayer2", label: "Bayer 2×2"      },
+        { value: "bayer4", label: "Bayer 4×4"      },
+        { value: "fs",     label: "Floyd-Steinberg" },
+      ]},
+      { key: "saturation", type: "range", label: "Saturation", min: 0, max: 200, step: 1, suffix: "%" },
+    ],
+  },
   mirror_tile: {
     label: "Mirror Tile",
     icon: "flip-horizontal",
@@ -383,8 +422,24 @@ async function runPipelineUpTo(region, targetIdx, ctx) {
     if (!b.enabled) continue;
 
     // Async block without an AI context: use cached output as passthrough, never execute.
+    // Scale the cache to match the current pipeline dimensions so that changing
+    // outputW/H (e.g. 512→1024) works without re-running the AI — the native-res
+    // cache is simply scaled to the new target size on the fly.
     if (BLOCK_DEFS[b.type]?.isAsync && !ctx.ai) {
-      if (b._cache) canvas = b._cache;
+      if (b._cache) {
+        const tw = canvas.width, th = canvas.height;
+        if (b._cache.width === tw && b._cache.height === th) {
+          canvas = b._cache;
+        } else {
+          const scaled = document.createElement("canvas");
+          scaled.width = tw; scaled.height = th;
+          const sctx = scaled.getContext("2d");
+          sctx.imageSmoothingEnabled = true;
+          sctx.imageSmoothingQuality = "high";
+          sctx.drawImage(b._cache, 0, 0, tw, th);
+          canvas = scaled;
+        }
+      }
       continue;
     }
 
@@ -509,21 +564,27 @@ async function runFromBlock(region, blockIdx) {
  * @returns {Promise<void>}
  */
 async function autoRunCPU(region, fromIdx) {
-  let lastCPU = -1;
+  // Find the last block worth running:
+  //   • dirty CPU block  → must re-run
+  //   • async block with a cache → apply as passthrough (use cached AI result)
+  // Both are included so that async caches restored from IDB on project load
+  // are always reflected in region.extracted without requiring a manual re-run.
+  let lastTarget = -1;
   for (let i = fromIdx; i < region.pipeline.length; i++) {
     const b = region.pipeline[i];
     if (!b.enabled) continue;
-    if (BLOCK_DEFS[b.type]?.isAsync) continue; // skip async, keep scanning for CPU blocks after
-    if (b._dirty) lastCPU = i;
+    const isAsync = BLOCK_DEFS[b.type]?.isAsync;
+    if (!isAsync && b._dirty)  lastTarget = i; // dirty CPU block
+    if ( isAsync && b._cache)  lastTarget = i; // async block with restored cache
   }
 
-  if (lastCPU < 0) {
+  if (lastTarget < 0) {
     if (region.parentId) {
-      // Variant with no CPU blocks: set extracted from parent crop.
+      // Variant with no blocks to process: set extracted from parent crop.
       const vc = _variantInputCanvas(region);
       if (vc) { region.extracted = vc; rebuildAtlas(); }
     } else {
-      // Parent with no dirty CPU blocks: still cascade in case variants need refresh.
+      // Parent with nothing to do: still cascade in case variants need refresh.
       getVariants(region).forEach(v => { invalidateCacheFrom(v, 0); autoRunCPU(v, 0); });
     }
     renderPreview();
@@ -536,7 +597,7 @@ async function autoRunCPU(region, fromIdx) {
 
   try {
     const ctx = { region, state, block: null, ai: null, signal: null };
-    const result = await runPipelineUpTo(region, lastCPU, ctx);
+    const result = await runPipelineUpTo(region, lastTarget, ctx);
     if (!result) return;
 
     region.extracted = result;
@@ -585,4 +646,5 @@ const BLOCK_RUNNERS = {
   ai_seamless:     aiSeamlessRunner,
   seamless_offset: seamlessOffsetRunner,
   mirror_tile:     mirrorTileRunner,
+  stylize:         stylizeRunner,
 };

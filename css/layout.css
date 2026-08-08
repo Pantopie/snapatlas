@@ -526,6 +526,28 @@ input.dim-input:focus {
   }
 }
 
+/* Output scale selector — shared class used in toolbar, atlas inspector, and export modal */
+.output-scale-sel {
+  -webkit-appearance: auto;
+  appearance: auto;
+  background-image: none;
+  padding: 1px var(--s1);
+  font-family: inherit;
+  font-size: var(--fs-label);
+  color: var(--muted);
+  background-color: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+
+/* Toolbar variant: stretch to the opt-strip row height */
+#output-scale-sel.output-scale-sel {
+  padding: 0 var(--s1);
+  background-color: rgba(8, 9, 9, 0.82);
+  height: 100%;
+}
+
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
   #canvas-zone {

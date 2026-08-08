@@ -928,6 +928,292 @@ function _buildTiledInput(src, uvScale, featherPx, outW, outH) {
   return out;
 }
 
+// ── STYLIZE — colour quantisation + dithering ────────────────────────────────
+// Bayer matrices, row-major, pre-scaled to the [-0.5, +0.5] threshold range
+const _BAYER_2 = [0, 2, 3, 1].map(v => v / 4  - 0.5);
+const _BAYER_4 = [0,8,2,10, 12,4,14,6, 3,11,1,9, 15,7,13,5].map(v => v / 16 - 0.5);
+
+// Snap a channel value to the nearest level for N bits per channel.
+/** @param {number} v @param {number} bits @returns {number} */
+function _qsnapBits(v, bits) {
+  const levels = (1 << bits) - 1;
+  const step = 255 / levels;
+  return Math.min(255, Math.max(0, Math.round(v / step) * step));
+}
+
+// ── Fixed palettes ─────────────────────────────────────────────────────────
+// Each entry is [R, G, B] (0–255).
+/** @type {Object<string, number[][]>} */
+const _PALETTES = {
+  // ── Handhelds ────────────────────────────────────────────────────────────
+  gameboy: [
+    [15,56,15],[48,98,48],[139,172,15],[155,188,15],
+  ],
+  gbpocket: [
+    [0,0,0],[85,85,85],[170,170,170],[255,255,255],
+  ],
+  virtualboy: [
+    [0,0,0],[85,0,0],[170,0,0],[255,0,0],
+  ],
+
+  // ── Home computers ───────────────────────────────────────────────────────
+  c64: [
+    [0,0,0],[255,255,255],[136,0,0],[170,255,238],
+    [204,68,204],[0,204,85],[0,0,170],[238,238,119],
+    [221,136,85],[102,68,0],[255,119,119],[51,51,51],
+    [119,119,119],[170,255,102],[0,136,255],[187,187,187],
+  ],
+  zxspectrum: [
+    [0,0,0],
+    [0,0,215],[215,0,0],[215,0,215],[0,215,0],[0,215,215],[215,215,0],[215,215,215],
+    [0,0,255],[255,0,0],[255,0,255],[0,255,0],[0,255,255],[255,255,0],[255,255,255],
+  ],
+  msx: [
+    [0,0,0],[0,0,0],[33,200,66],[94,220,120],
+    [84,85,237],[125,118,252],[212,82,77],[66,235,245],
+    [252,85,84],[255,121,120],[212,193,84],[230,206,128],
+    [33,176,59],[201,91,186],[204,204,204],[255,255,255],
+  ],
+  cpc: [
+    [0,0,0],[0,0,128],[0,0,255],
+    [128,0,0],[128,0,128],[128,0,255],
+    [255,0,0],[255,0,128],[255,0,255],
+    [0,128,0],[0,128,128],[0,128,255],
+    [128,128,0],[128,128,128],[128,128,255],
+    [255,128,0],[255,128,128],[255,128,255],
+    [0,255,0],[0,255,128],[0,255,255],
+    [128,255,0],[128,255,128],[128,255,255],
+    [255,255,0],[255,255,128],[255,255,255],
+  ],
+
+  // ── PC / arcade ──────────────────────────────────────────────────────────
+  cga: [
+    [0,0,0],[0,0,170],[0,170,0],[0,170,170],
+    [170,0,0],[170,0,170],[170,85,0],[170,170,170],
+    [85,85,85],[85,85,255],[85,255,85],[85,255,255],
+    [255,85,85],[255,85,255],[255,255,85],[255,255,255],
+  ],
+  ega: (() => {
+    const L = [0, 85, 170, 255];
+    return Array.from({length: 64}, (_, i) => [L[(i >> 4) & 3], L[(i >> 2) & 3], L[i & 3]]);
+  })(),
+  nes: [
+    [84,84,84],[0,30,116],[8,16,144],[48,0,136],[68,0,100],[92,0,48],[84,4,0],[60,24,0],
+    [32,42,0],[8,58,0],[0,64,0],[0,60,0],[0,50,60],[0,0,0],[0,0,0],[0,0,0],
+    [152,150,152],[8,76,196],[48,50,236],[92,30,228],[136,20,176],[160,20,100],[152,34,32],[120,60,0],
+    [84,90,0],[40,114,0],[8,124,0],[0,118,40],[0,102,120],[0,0,0],[0,0,0],[0,0,0],
+    [236,238,236],[76,154,236],[120,124,236],[176,98,236],[228,84,236],[236,88,180],[236,106,100],[212,136,32],
+    [160,170,0],[116,196,0],[76,208,32],[56,204,108],[56,180,204],[60,60,60],[0,0,0],[0,0,0],
+    [236,238,236],[168,204,236],[188,188,236],[212,178,236],[236,174,236],[236,174,212],[236,180,176],[228,196,144],
+    [204,210,120],[180,222,120],[168,226,144],[152,226,180],[160,214,228],[160,162,160],[0,0,0],[0,0,0],
+  ],
+
+  // ── Community / fantasy consoles ─────────────────────────────────────────
+  pico8: [
+    [0,0,0],[29,43,83],[126,37,83],[0,135,81],
+    [171,82,54],[95,87,79],[194,195,199],[255,241,232],
+    [255,0,77],[255,163,0],[255,236,39],[0,228,54],
+    [41,173,255],[131,118,156],[255,119,168],[255,204,170],
+  ],
+  sweetie16: [
+    [26,28,44],[93,39,93],[177,62,83],[239,125,87],
+    [255,205,117],[167,240,112],[56,183,100],[37,113,121],
+    [41,54,111],[59,93,201],[65,166,246],[115,239,247],
+    [244,244,244],[148,176,194],[86,108,134],[51,60,87],
+  ],
+  dawnbringer16: [
+    [20,12,28],[68,36,52],[48,52,109],[78,74,78],
+    [133,76,48],[52,101,36],[208,70,72],[117,113,97],
+    [89,125,206],[210,125,44],[133,149,161],[109,170,44],
+    [210,170,153],[109,194,202],[218,212,94],[222,238,214],
+  ],
+  dawnbringer32: [
+    [0,0,0],[34,32,52],[69,40,60],[102,57,49],
+    [143,86,59],[223,113,38],[217,160,102],[238,195,154],
+    [251,242,54],[153,229,80],[106,190,48],[55,148,110],
+    [75,105,47],[82,75,36],[50,60,57],[63,63,116],
+    [48,96,130],[91,110,225],[99,155,255],[95,205,228],
+    [203,219,252],[255,255,255],[155,173,183],[132,126,135],
+    [105,106,106],[89,86,82],[118,66,138],[172,50,50],
+    [217,87,99],[215,123,186],[143,151,74],[138,111,48],
+  ],
+};
+
+// Nearest-colour match in RGB space. Returns the closest [R,G,B] from pal.
+/**
+ * @param {number} r @param {number} g @param {number} b @param {number[][]} pal
+ * @returns {number[]}
+ */
+function _nearestPalColor(r, g, b, pal) {
+  let best = pal[0], bestD = Infinity;
+  for (const c of pal) {
+    const dr = r - c[0], dg = g - c[1], db = b - c[2];
+    const d = dr*dr + dg*dg + db*db;
+    if (d < bestD) { bestD = d; best = c; }
+  }
+  return best;
+}
+
+// Apply stylize effects to a canvas.
+// s: { bitDepth, dither, saturation, fixedPalette }
+//   bitDepth:     1–8 (8 = no quantisation)
+//   dither:       "none" | "bayer2" | "bayer4" | "fs"
+//   saturation:   0–200 (100 = unchanged)
+//   fixedPalette: "none" | <palette key>
+//                 When set, overrides bitDepth quantisation.
+// Order: saturation → quantise+dither.
+// Returns src unchanged when all effects are neutral.
+/** Yield to the event loop to avoid script-timeout watchdog on large canvases. */
+function _yieldToEventLoop() { return new Promise(r => setTimeout(r, 0)); }
+
+/**
+ * @param {HTMLCanvasElement} src
+ * @param {{ bitDepth?: number, dither?: string, saturation?: number, fixedPalette?: string }} s
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<HTMLCanvasElement|null>} null if aborted
+ */
+async function exportApplyStylize(src, s, signal) {
+  if (signal?.aborted) return null;
+  const { bitDepth = 8, dither = "none", saturation = 100, fixedPalette = "none" } = s;
+  const pal       = fixedPalette !== "none" ? _PALETTES[fixedPalette] : null;
+  const doQuant   = pal != null || bitDepth < 8;
+  const doSat     = saturation !== 100;
+  if (!doQuant && !doSat) return src;
+
+  const out = document.createElement("canvas");
+  out.width = src.width; out.height = src.height;
+  const ctx = out.getContext("2d");
+  ctx.drawImage(src, 0, 0);
+  const W = src.width, H = src.height;
+  const id = ctx.getImageData(0, 0, W, H);
+  const d  = id.data;
+
+  // How many rows to process before yielding to avoid script-timeout watchdog.
+  // Smaller = more responsive but higher overhead. 64 rows is a good trade-off.
+  const CHUNK = 64;
+
+  // ── 1. Saturation ─────────────────────────────────────────────────────────
+  if (doSat) {
+    const f = saturation / 100;
+    for (let y = 0; y < H; y++) {
+      if (y % CHUNK === 0 && y > 0) await _yieldToEventLoop();
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+        d[i]   = Math.min(255, Math.max(0, Math.round(gray + (d[i]   - gray) * f)));
+        d[i+1] = Math.min(255, Math.max(0, Math.round(gray + (d[i+1] - gray) * f)));
+        d[i+2] = Math.min(255, Math.max(0, Math.round(gray + (d[i+2] - gray) * f)));
+      }
+    }
+  }
+
+  // ── 2. Colour quantisation + dithering ────────────────────────────────────
+  if (doQuant) {
+    if (pal) {
+      const spread = 48;
+      if (dither === "bayer2" || dither === "bayer4") {
+        const mat = dither === "bayer4" ? _BAYER_4 : _BAYER_2;
+        const N   = dither === "bayer4" ? 4 : 2;
+        for (let y = 0; y < H; y++) {
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
+          for (let x = 0; x < W; x++) {
+            const pi = (y * W + x) * 4;
+            const t  = mat[(y % N) * N + (x % N)] * spread;
+            const [qr, qg, qb] = _nearestPalColor(
+              Math.min(255, Math.max(0, d[pi]   + t)),
+              Math.min(255, Math.max(0, d[pi+1] + t)),
+              Math.min(255, Math.max(0, d[pi+2] + t)),
+              pal);
+            d[pi] = qr; d[pi+1] = qg; d[pi+2] = qb;
+          }
+        }
+      } else if (dither === "fs") {
+        const n = W * H;
+        const R = new Float32Array(n), G = new Float32Array(n), B = new Float32Array(n);
+        for (let i = 0; i < n; i++) { R[i] = d[i*4]; G[i] = d[i*4+1]; B[i] = d[i*4+2]; }
+        for (let y = 0; y < H; y++) {
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
+          for (let x = 0; x < W; x++) {
+            const i  = y * W + x;
+            const [qr, qg, qb] = _nearestPalColor(R[i], G[i], B[i], pal);
+            d[i*4] = qr; d[i*4+1] = qg; d[i*4+2] = qb;
+            const er = R[i] - qr, eg = G[i] - qg, eb = B[i] - qb;
+            if (x+1 < W)             { R[i+1]   += er*7/16; G[i+1]   += eg*7/16; B[i+1]   += eb*7/16; }
+            if (y+1 < H && x > 0)   { R[i+W-1] += er*3/16; G[i+W-1] += eg*3/16; B[i+W-1] += eb*3/16; }
+            if (y+1 < H)             { R[i+W]   += er*5/16; G[i+W]   += eg*5/16; B[i+W]   += eb*5/16; }
+            if (y+1 < H && x+1 < W) { R[i+W+1] += er*1/16; G[i+W+1] += eg*1/16; B[i+W+1] += eb*1/16; }
+          }
+        }
+      } else {
+        for (let y = 0; y < H; y++) {
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
+          for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            const [qr, qg, qb] = _nearestPalColor(d[i], d[i+1], d[i+2], pal);
+            d[i] = qr; d[i+1] = qg; d[i+2] = qb;
+          }
+        }
+      }
+    } else {
+      const step = 255 / ((1 << bitDepth) - 1);
+      if (dither === "bayer2" || dither === "bayer4") {
+        const mat = dither === "bayer4" ? _BAYER_4 : _BAYER_2;
+        const N   = dither === "bayer4" ? 4 : 2;
+        for (let y = 0; y < H; y++) {
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
+          for (let x = 0; x < W; x++) {
+            const pi = (y * W + x) * 4;
+            const t  = mat[(y % N) * N + (x % N)] * step;
+            d[pi]   = _qsnapBits(d[pi]   + t, bitDepth);
+            d[pi+1] = _qsnapBits(d[pi+1] + t, bitDepth);
+            d[pi+2] = _qsnapBits(d[pi+2] + t, bitDepth);
+          }
+        }
+      } else if (dither === "fs") {
+        const n = W * H;
+        const R = new Float32Array(n), G = new Float32Array(n), B = new Float32Array(n);
+        for (let i = 0; i < n; i++) { R[i] = d[i*4]; G[i] = d[i*4+1]; B[i] = d[i*4+2]; }
+        for (let y = 0; y < H; y++) {
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
+          for (let x = 0; x < W; x++) {
+            const i  = y * W + x;
+            const qr = _qsnapBits(R[i], bitDepth), qg = _qsnapBits(G[i], bitDepth), qb = _qsnapBits(B[i], bitDepth);
+            d[i*4] = qr; d[i*4+1] = qg; d[i*4+2] = qb;
+            const er = R[i] - qr, eg = G[i] - qg, eb = B[i] - qb;
+            if (x+1 < W)             { R[i+1]   += er*7/16; G[i+1]   += eg*7/16; B[i+1]   += eb*7/16; }
+            if (y+1 < H && x > 0)   { R[i+W-1] += er*3/16; G[i+W-1] += eg*3/16; B[i+W-1] += eb*3/16; }
+            if (y+1 < H)             { R[i+W]   += er*5/16; G[i+W]   += eg*5/16; B[i+W]   += eb*5/16; }
+            if (y+1 < H && x+1 < W) { R[i+W+1] += er*1/16; G[i+W+1] += eg*1/16; B[i+W+1] += eb*1/16; }
+          }
+        }
+      } else {
+        for (let y = 0; y < H; y++) {
+          if (y % CHUNK === 0 && y > 0) { await _yieldToEventLoop(); if (signal?.aborted) return null; }
+          for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            d[i]   = _qsnapBits(d[i],   bitDepth);
+            d[i+1] = _qsnapBits(d[i+1], bitDepth);
+            d[i+2] = _qsnapBits(d[i+2], bitDepth);
+          }
+        }
+      }
+    }
+  }
+
+  ctx.putImageData(id, 0, 0);
+  return out;
+}
+
+/**
+ * @param {HTMLCanvasElement} input
+ * @param {{ fixedPalette: string, bitDepth: number, dither: string, saturation: number }} params
+ * @param {PipelineCtx} _ctx
+ * @returns {Promise<HTMLCanvasElement>}
+ */
+function stylizeRunner(input, params, ctx) {
+  return exportApplyStylize(input, params, ctx?.signal);
+}
+
 // ── Albedo Compress ──────────────────────────────────────────────────────────
 // Remaps luminance and saturation into physically-based albedo ranges.
 // Two-pass algorithm:

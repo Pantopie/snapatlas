@@ -162,7 +162,7 @@ pvCanvas.addEventListener("mouseleave", () => {
   renderPreview();
 });
 
-// Click on atlas → select that region for inspector
+// Click on atlas → select that region (or deselect to show atlas inspector)
 pvCanvas.addEventListener("click", (e) => {
   if (e.altKey || state.pvResizing || state.previewMode === "tile") return;
   if (!state.packedLayout || !state.pvSelected) return;
@@ -171,11 +171,59 @@ pvCanvas.addEventListener("click", (e) => {
   const selIdx = placements.findLastIndex(
     p => ax >= p.x && ax <= p.x + p.w && ay >= p.y && ay <= p.y + p.h
   );
-  if (selIdx === -1) return;
+  if (selIdx === -1) { selectRegion(null); return; }
   const region = state.pvSelected[selIdx];
   const regionIdx = state.regions.indexOf(region);
   if (regionIdx !== -1) selectRegion(regionIdx);
 });
+
+// ── Atlas bypass toggle ────────────────────────────────────────────────────
+const btnAtlasBypass = document.getElementById("btn-atlas-bypass");
+
+/** Update the bypass button's enabled/active/icon state. */
+function _updateAtlasBypassBtn() {
+  if (!btnAtlasBypass) return;
+  // Only meaningful when there are enabled global blocks to toggle on/off
+  const hasEnabledBlocks = state.atlas.pipeline.some(b => b.enabled);
+  btnAtlasBypass.disabled = !hasEnabledBlocks;
+  if (!hasEnabledBlocks) state.atlasBypass = false;
+  // Active = blocks are applied (the normal/on state); inactive = bypassed
+  btnAtlasBypass.classList.toggle("active", !state.atlasBypass);
+  btnAtlasBypass.title = state.atlasBypass
+    ? "Global blocks bypassed — click to re-apply"
+    : "Global blocks applied — click to preview without";
+}
+
+btnAtlasBypass?.addEventListener("click", () => {
+  state.atlasBypass = !state.atlasBypass;
+  renderPreview();
+});
+
+/**
+ * Shared handler for all output-scale selectors (toolbar + atlas inspector).
+ * Updates state, rebuilds atlas, re-renders inspector, and saves.
+ * @param {number} val
+ */
+function applyOutputScale(val) {
+  state.outputScale = val;
+  // Sync the toolbar selector (inspector selector is inside inspectorEl and gets
+  // re-rendered by renderInspector, so no manual sync needed there)
+  const toolbarSel = document.getElementById("output-scale-sel");
+  if (toolbarSel) toolbarSel.value = String(val);
+  rebuildAtlas();
+  renderInspector();
+  saveProject();
+}
+
+// Populate the toolbar select from OUTPUT_SCALE_OPTIONS and wire its handler
+;(function _initOutputScaleSel() {
+  const sel = document.getElementById("output-scale-sel");
+  if (!sel) return;
+  sel.innerHTML = OUTPUT_SCALE_OPTIONS.map(o =>
+    `<option value="${o.value}"${o.value === (state.outputScale ?? 1) ? " selected" : ""}>${o.label}</option>`
+  ).join("");
+  sel.addEventListener("change", e => applyOutputScale(parseFloat(e.target.value)));
+})();
 
 // Window-level handlers for pvResizing (so drag stays tracked outside canvas)
 window.addEventListener("mousemove", (e) => {
@@ -372,12 +420,17 @@ function renderPreview() {
   cubeCanvas.style.display = "none";
   cubeControls.style.display = "none";
 
-  const selected = state.regions.filter((r) => r.selected);
+  // Only include processed regions — matches _rebuildAtlasFromState so the
+  // preview atlasSize is always in sync with the exported atlas, whether or not
+  // global pipeline blocks are active.
+  const selected = state.regions.filter((r) => r.selected && r.extracted);
   if (!selected.length) {
     pvCanvas.style.display = "none";
     pvHint.style.display = "block";
-    pvHint.innerHTML =
-      "Draw regions on the photo<br>to build your texture atlas";
+    const hasUnprocessed = state.regions.some(r => r.selected);
+    pvHint.innerHTML = hasUnprocessed
+      ? "Run the pipeline on your regions<br>to see the atlas preview"
+      : "Draw regions on the photo<br>to build your texture atlas";
     pvSize.textContent = "";
     state.packedLayout = null;
     return;
@@ -396,7 +449,8 @@ function renderPreview() {
 
   pvHint.style.display = "none";
   pvCanvas.style.display = "block";
-  pvSize.textContent = `${atlasSize} × ${atlasSize}`;
+  const scaledAtlasSize = state.atlasCanvas?.width ?? atlasSize;
+  pvSize.textContent = `${scaledAtlasSize} × ${scaledAtlasSize}`;
 
   // Auto-fit whenever the atlas size changes (new layout, first render, etc.)
   if (atlasSize !== state.pvAtlasSize) {
@@ -443,6 +497,22 @@ function renderPreview() {
   const inspectedRegion = state.regions[state.inspectedIdx];
   const inspectedI = inspectedRegion !== undefined ? selected.indexOf(inspectedRegion) : -1;
 
+  // ── Bypass toggle state ───────────────────────────────────────────────────
+  // Update the bypass button's enabled/active state on every render
+  _updateAtlasBypassBtn();
+
+  // Always draw from the atlas canvas when available — it represents the output
+  // resolution accurately and is consistent whether or not pipeline blocks are
+  // active.  Per-region rendering (from potentially higher-res sources) would
+  // show a different visual resolution than the atlas, making before/after
+  // comparisons misleading.  The bypass button swaps in per-region rendering
+  // so the user can compare against their raw pipeline output if needed.
+  const hasEnabledAtlasBlocks = state.atlas.pipeline.some(b => b.enabled);
+  const useAtlasCanvas = mode === "extracted" && !!state.atlasCanvas && !state.atlasBypass;
+  if (useAtlasCanvas) {
+    pc.drawImage(state.atlasCanvas, panX, panY, atlasDisp, atlasDisp);
+  }
+
   selected.forEach((r, i) => {
     const p = placements[i];
     const px = panX + p.x * zoom,
@@ -455,7 +525,7 @@ function renderPreview() {
     if (mode === "wireframe") {
       pc.fillStyle = color + (isInspected ? "30" : "18");
       pc.fillRect(px, py, pw, ph);
-    } else {
+    } else if (!useAtlasCanvas) {
       // 'extracted' — show pipeline output (or raw crop fallback)
       const srcCanvas = _previewSourceFor(r);
       if (srcCanvas) {

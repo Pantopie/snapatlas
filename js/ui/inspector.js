@@ -33,6 +33,7 @@ function addRegion(photo, x1, y1, x2, y2) {
 
   state.processed = false;
   state.atlasCanvas = null;
+  state.atlasBaseCanvas = null;
 
   // Auto-open newly created region in the inspector
   selectRegion(newIdx);
@@ -42,6 +43,10 @@ function addRegion(photo, x1, y1, x2, y2) {
   updateButtons();
   saveProject();
   onboarding?.advance("first-texture", "region");
+
+  // Kick off the CPU pipeline immediately so the atlas preview populates
+  // without requiring a manual run. Async blocks are skipped by autoRunCPU.
+  autoRunCPU(state.regions[newIdx], 0);
 }
 
 /** @param {HTMLImageElement} img @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2 @returns {string} */
@@ -64,7 +69,7 @@ function thumbCrop(img, x1, y1, x2, y2) {
 }
 
 // ── REGION INSPECTOR ──────────────────────────────────────────────────────
-/** @param {number} idx */
+/** @param {number|null} idx */
 function selectRegion(idx) {
   if (idx !== state.inspectedIdx) {
     // Reset tile view when switching regions so the new texture is framed cleanly
@@ -79,22 +84,113 @@ function selectRegion(idx) {
 /** @returns {void} */
 function _rebuildAtlasFromState() {
   const selected = state.regions.filter(r => r.selected && r.extracted);
-  if (!selected.length) { state.atlasCanvas = null; return; }
+  if (!selected.length) {
+    state.atlasBaseCanvas = null;
+    state.atlasCanvas = null;
+    return;
+  }
   const layout = packAtlas(selected);
-  if (!layout) { state.atlasCanvas = null; return; }
+  if (!layout) {
+    state.atlasBaseCanvas = null;
+    state.atlasCanvas = null;
+    return;
+  }
   state.packedLayout = layout;
   state.packedStrips = selected;
   const { atlasSize, placements } = layout;
+  const scale = state.outputScale ?? 1;
+  const scaledSize = Math.max(1, Math.round(atlasSize * scale));
   const c = document.createElement("canvas");
-  c.width = atlasSize; c.height = atlasSize;
+  c.width = scaledSize; c.height = scaledSize;
   const actx = c.getContext("2d");
-  selected.forEach((r, i) => _drawOnAtlas(actx, r.extracted, placements[i]));
-  state.atlasCanvas = c;
+  selected.forEach((r, i) => _drawOnAtlas(actx, r.extracted, placements[i], 0, 0, scale));
+  state.atlasBaseCanvas = c;
+  state.atlasCanvas = c; // pre-pipeline fallback until pipeline completes
+  invalidateAtlasFrom(state.atlas, 0); // base changed — all atlas blocks are stale
+  _runAtlasPipelineAndStore();
 }
 
 /** @returns {void} */
 function rebuildAtlas() {
   _rebuildAtlasFromState();
+}
+
+// ── ATLAS PIPELINE EXECUTION ──────────────────────────────────────────────
+
+let _atlasPipelineGen = 0;
+/** @type {number} Gen of the last pipeline whose result was applied to state.atlasCanvas */
+let _atlasCanvasGen = 0;
+/** @type {AbortController | null} */
+let _atlasPipelineAbort = null;
+
+/** Run the global atlas pipeline and store the result in state. */
+async function _runAtlasPipelineAndStore() {
+  if (!state.atlasBaseCanvas) return;
+  _atlasPipelineAbort?.abort();
+  const ctrl = new AbortController();
+  _atlasPipelineAbort = ctrl;
+  const gen = ++_atlasPipelineGen;
+  const result = await runAtlasPipeline(state.atlas, state.atlasBaseCanvas, ctrl.signal);
+  // Only discard if a newer pipeline has already applied its result to atlasCanvas.
+  if (gen !== _atlasPipelineGen && _atlasCanvasGen > gen) return;
+  state.atlasCanvas = result || state.atlasBaseCanvas;
+  _atlasCanvasGen = gen;
+  renderPreview();
+  // If the export modal is open, refresh its preview so it picks up the new atlas.
+  // In regions mode, rebuild the per-region canvases from the freshly pipelined atlas
+  // so the export always shows the correct global-blocks result.
+  if (document.getElementById("exportModalBackdrop")?.classList.contains("open")) {
+    if (typeof _prevScaled !== "undefined") { _prevScaled = null; } // bust atlas display cache
+    if (typeof _exportMode !== "undefined" && _exportMode === "regions") {
+      if (typeof _buildStyledRegions === "function") _buildStyledRegions();
+    } else {
+      if (typeof _renderPrevCanvas === "function") _renderPrevCanvas();
+    }
+    if (typeof _scheduleFileSizeEst === "function") _scheduleFileSizeEst();
+  }
+  // Update block preview canvases in-place without rebuilding the inspector DOM.
+  // A full renderInspector() would destroy range sliders mid-drag.
+  _refreshAtlasBlockPreviews();
+}
+
+/**
+ * Toggle the running visual on a single atlas block card without re-rendering
+ * the whole inspector (which would destroy active range sliders).
+ * Called from runAtlasPipeline before/after each block executes.
+ * @param {number} bi   Block index
+ * @param {boolean} on  true = show spinner, false = restore icon
+ */
+function _refreshAtlasBlockRunningState(bi, on) {
+  if (state.inspectedIdx !== null) return; // atlas inspector not visible
+  const item = inspectorEl.querySelector(`.block-item[data-block="${bi}"]`);
+  if (!item) return;
+  item.classList.toggle("running", on);
+  const iconEl = item.querySelector(".block-icon");
+  if (!iconEl) return;
+  const def = BLOCK_DEFS[state.atlas.pipeline[bi]?.type];
+  iconEl.innerHTML = on
+    ? `<span class="block-spinner">${Lucide.iconHTML("loader", 14)}</span>`
+    : Lucide.iconHTML(def?.icon ?? "square");
+}
+
+/**
+ * Update atlas block preview canvases after the pipeline runs.
+ * Uses an in-place canvas draw to avoid destroying active slider elements.
+ * Falls back to a full renderInspector() only when a block has a new cache
+ * but its canvas element hasn't been rendered yet (first-run case).
+ */
+function _refreshAtlasBlockPreviews() {
+  if (state.inspectedIdx !== null) return; // atlas inspector not visible
+  // If any block now has a cache but no canvas element in the DOM, we need a
+  // full re-render (happens the first time a block produces output).
+  const needsRebuild = state.atlas.pipeline.some(
+    (b, bi) => b._cache && !inspectorEl.querySelector(`#bpvc-${bi}`)
+  );
+  if (needsRebuild) {
+    renderInspector();
+    return;
+  }
+  _setupBlockPreviews(inspectorEl, state.atlas.pipeline);
 }
 
 // ── MATERIAL CLASSIFICATION ──────────────────────────────────────────────────
@@ -270,41 +366,15 @@ function _initCropCanvas(r, parent, canvas) {
   canvas.style.cursor = noCrop ? "default" : "grab";
 }
 
-/** @returns {void} */
-function renderInspector() {
-  if (state.inspectedIdx === null || !state.regions[state.inspectedIdx]) {
-    inspectorEl.innerHTML = `<div class="empty-state">Click a region on the photo<br>or atlas to inspect it</div>`;
-    return;
-  }
+// ── BLOCK HTML BUILDER ────────────────────────────────────────────────────
 
-  const i = state.inspectedIdx;
-  const r = state.regions[i];
-  const color = regionColor(r, i);
-
-  // Variant / parent helpers — must come first, referenced by material vars below
-  const parent     = getParentRegion(r);
-  const variants   = getVariants(r);
-  const isVariant  = !!parent;
-  const maxW       = isVariant ? parent.outputW : 1024;
-  const maxH       = isVariant ? parent.outputH : 1024;
-
-  // Split variant labels: "region_1_v2" → { base: "region 1", variant: "v2" }
-  const parseLabel = (lbl) => {
-    const m = lbl.match(/^(.+?)_v(\d+)$/);
-    return m ? { base: m[1].replace(/_/g, " "), variant: `v${m[2]}` } : { base: lbl.replace(/_/g, " "), variant: null };
-  };
-  const { base: displayLabel, variant: variantTag } = parseLabel(r.label);
-
-  // Variants inherit material from parent — no need for independent classification.
-  const effectiveMat = r.material ?? (isVariant ? parent.material : null);
-  const matInherited = isVariant && !r.material && !!effectiveMat;
-  const matCls    = effectiveMat?.materialClass ?? null;
-  const matDef    = matCls ? (MATERIAL_CLASSES[matCls] ?? MATERIAL_CLASSES.generic) : null;
-  const semDef    = effectiveMat?.semanticClass ? (SEMANTIC_CLASSES[effectiveMat.semanticClass] ?? null) : null;
-  const tilDef    = effectiveMat?.tilingClass   ? (TILING_CLASSES[effectiveMat.tilingClass]   ?? null) : null;
-
-  // Pipeline blocks HTML
-  const blocksHTML = r.pipeline.map((b, bi) => {
+/**
+ * Build HTML for a pipeline's block list.
+ * @param {Block[]} pipeline
+ * @returns {string}
+ */
+function _buildBlocksHTML(pipeline) {
+  return pipeline.map((b, bi) => {
     const def = BLOCK_DEFS[b.type] ?? { label: b.type, icon: "square", isAsync: false, hasConfigure: false, paramsUI: [] };
     const isRunning = b._running;
     const isDone = !b._dirty && b._cache;
@@ -443,12 +513,397 @@ function renderInspector() {
       ${footerHTML}
     </div>`;
   }).join("");
+}
+
+/**
+ * Draw cached block previews into their canvas elements.
+ * @param {Element} containerEl
+ * @param {Block[]} pipeline
+ */
+function _setupBlockPreviews(containerEl, pipeline) {
+  const _inspW = inspectorEl.clientWidth - 20;
+  pipeline.forEach((b, bi) => {
+    if (!b._cache) return;
+    const pvc = containerEl.querySelector(`#bpvc-${bi}`);
+    if (!pvc) return;
+    const maxW = _inspW > 40 ? _inspW : 200;
+    const maxH = 96;
+    const scale = Math.min(maxW / b._cache.width, maxH / b._cache.height);
+    pvc.width  = b._cache.width;
+    pvc.height = b._cache.height;
+    pvc.style.width  = Math.round(b._cache.width  * scale) + "px";
+    pvc.style.height = Math.round(b._cache.height * scale) + "px";
+    pvc.getContext("2d").drawImage(b._cache, 0, 0);
+  });
+}
+
+// Module-level save debounce (shared across inspector renders)
+let _saveTimer;
+const _debounceSave = (ms) => { clearTimeout(_saveTimer); _saveTimer = setTimeout(saveProject, ms); };
+
+/**
+ * Run the CPU pipeline on every selected region that is dirty or has never
+ * produced an extracted canvas. Async blocks are always skipped by autoRunCPU.
+ * Call this whenever the atlas needs to be up-to-date without a manual run.
+ */
+function _autoRunDirtyRegions() {
+  for (const r of state.regions) {
+    if (!r.selected) continue;
+    if (r._runController) continue; // already running
+    const needsRun = !r.extracted || r.pipeline.some(
+      b => b.enabled && !BLOCK_DEFS[b.type]?.isAsync && b._dirty
+    );
+    if (needsRun) autoRunCPU(r, 0);
+  }
+}
+
+// ── INSPECTOR DISPATCH ────────────────────────────────────────────────────
+
+/** @returns {void} */
+function renderInspector() {
+  if (state.inspectedIdx === null || !state.regions[state.inspectedIdx]) {
+    _renderAtlasInspector();
+    return;
+  }
+  _renderRegionInspector(state.inspectedIdx);
+}
+
+// ── ATLAS INSPECTOR ───────────────────────────────────────────────────────
+
+function _renderAtlasInspector() {
+  const atlas = state.atlas;
+  const total = state.regions.length;
+  const included = state.regions.filter(r => r.selected && r.extracted).length;
+  const atlasSize = state.packedLayout?.atlasSize || 0;
+
+  const regionListHTML = total
+    ? state.regions.map((r, i) => {
+        const color = regionColor(r, i);
+        return `<div class="atlas-region-row ${!r.selected ? "is-excluded" : ""}">
+          <label class="atlas-region-toggle" title="${r.selected ? "Exclude from atlas" : "Include in atlas"}">
+            <input type="checkbox" class="atlas-region-check" data-idx="${i}" ${r.selected ? "checked" : ""}>
+          </label>
+          <span class="atlas-region-swatch" style="background:${color}"></span>
+          <button class="atlas-region-name" data-goto="${i}">${r.label.replace(/_/g, " ")}${r.parentId ? ` <span class="chip chip-accent" style="font-size:9px">v</span>` : ""}</button>
+          <span class="atlas-region-dims">${r.outputW}×${r.outputH}</span>
+        </div>`;
+      }).join("")
+    : `<div class="empty-state" style="padding:var(--s2) var(--s3)">No regions yet</div>`;
+
+  const blocksHTML = _buildBlocksHTML(atlas.pipeline);
+
+  const atlasBlockPickerHTML = (() => {
+    const cats = BLOCK_CATEGORIES.map(cat => {
+      const items = Object.entries(BLOCK_DEFS).filter(([type, def]) =>
+        !def.hidden && def.category === cat.key && ATLAS_BLOCK_TYPES.has(type)
+      );
+      if (!items.length) return "";
+      return `<div class="block-picker-cat">${cat.label}</div>` +
+        items.map(([type, def]) =>
+          `<button class="block-picker-item" data-type="${type}">
+            <span class="picker-item-icon">${Lucide.iconHTML(def.icon)}</span>
+            <span class="picker-item-label">${def.label}</span>
+            ${def.desc ? `<span class="picker-item-desc">${def.desc}</span>` : ""}
+          </button>`
+        ).join("");
+    }).join("");
+    return cats;
+  })();
+
+  const outputScale  = state.outputScale ?? 1;
+  const scaledSize   = atlasSize ? Math.max(1, Math.round(atlasSize * outputScale)) : 0;
+
+  const sizeHTML = atlasSize ? `
+    <div class="atlas-size-section">
+      <div class="atlas-size-row">
+        <span class="atlas-size-label">Native</span>
+        <span class="atlas-size-val">${atlasSize} × ${atlasSize} px</span>
+      </div>
+      <div class="atlas-size-row">
+        <span class="atlas-size-label">Output</span>
+        <span class="atlas-size-val atlas-size-val--accent">${scaledSize} × ${scaledSize} px</span>
+        ${outputScaleSelectHTML("atlas-scale-sel", outputScale)}
+      </div>
+    </div>` : "";
+
+  const footerHTML = atlasSize
+    ? `<div class="atlas-info-footer">${Lucide.iconHTML('package', 12)} ${included} texture${included !== 1 ? "s" : ""} · ${scaledSize} × ${scaledSize} px output</div>`
+    : "";
+
+  inspectorEl.innerHTML = `
+    <div class="insp-header" style="border-left:3px solid var(--border2)">
+      <div class="insp-meta">
+        <div class="insp-label" style="cursor:default;display:flex;align-items:center;gap:var(--s1)">${Lucide.iconHTML('layout-grid', 14)} Texture Atlas</div>
+        <div class="insp-dims" style="color:var(--muted);font-size:var(--fs-label)">${atlasSize ? `${included}/${total} regions` : "No atlas built yet"}</div>
+      </div>
+    </div>
+    ${sizeHTML}
+    <h2 class="insp-pipeline-label">Regions <span class="chip chip-surface">${total}</span></h2>
+    <div class="atlas-region-list" id="atlas-region-list">${regionListHTML}</div>
+    <h2 class="insp-pipeline-label">Global Pipeline</h2>
+    <div class="insp-pipeline" id="insp-pipeline">${blocksHTML || `<div class="empty-state">No global blocks — add one below</div>`}</div>
+    <div class="block-add-wrap">
+      <button class="block-footer-btn" id="insp-add-block">${Lucide.iconHTML('plus')} Add Block</button>
+      <div class="block-picker" id="insp-block-picker" style="display:none">${atlasBlockPickerHTML}</div>
+    </div>
+    ${footerHTML}
+  `;
+
+  // Draw block preview canvases
+  _setupBlockPreviews(inspectorEl, atlas.pipeline);
+
+  // Init inline curves editors for atlas
+  atlas.pipeline.forEach((b, bi) => {
+    if (b.type === "curves") {
+      initInlineCurvesEditor(
+        { pipeline: atlas.pipeline },
+        bi,
+        () => { invalidateAtlasFrom(atlas, bi); _runAtlasPipelineAndStore(); saveProject(); }
+      );
+    }
+  });
+
+  // Output scale selector — delegates to shared handler (syncs toolbar, rebuilds, saves)
+  inspectorEl.querySelector("#atlas-scale-sel")?.addEventListener("change", e => {
+    applyOutputScale(parseFloat(e.target.value));
+  });
+
+  // Region list events
+  inspectorEl.querySelectorAll(".atlas-region-check").forEach(cb => {
+    cb.addEventListener("change", e => {
+      const idx = +e.target.dataset.idx;
+      state.regions[idx].selected = e.target.checked;
+      // If the newly-included region hasn't been processed, kick off its CPU run
+      if (e.target.checked) _autoRunDirtyRegions();
+      renderCanvas(); renderPreview(); updateButtons(); saveProject();
+    });
+  });
+  inspectorEl.querySelectorAll(".atlas-region-name").forEach(btn => {
+    btn.addEventListener("click", e => {
+      selectRegion(+e.currentTarget.dataset.goto);
+    });
+  });
+
+  // Wire atlas block events
+  _wireAtlasBlockEvents(atlas);
+}
+
+/**
+ * Wire all block-level events for the atlas pipeline.
+ * @param {{ pipeline: Block[] }} atlas
+ */
+function _wireAtlasBlockEvents(atlas) {
+  const pipeline = atlas.pipeline;
+
+  const invalidate = (bi) => invalidateAtlasFrom(atlas, bi);
+  const run = () => _runAtlasPipelineAndStore();
+
+  // Block enable/disable toggle
+  inspectorEl.querySelectorAll(".block-toggle-btn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      const bi = +e.currentTarget.dataset.block;
+      pipeline[bi].enabled = !pipeline[bi].enabled;
+      // Preserve this block's own cache — only downstream blocks need to re-run.
+      // This means re-enabling a block (e.g. stylize) reuses its cached output
+      // instead of re-running the full pixel loop from scratch.
+      invalidate(bi + 1);
+      run();
+      renderInspector();
+      saveProject();
+    });
+  });
+
+  // Double-click param value label to reset to default
+  inspectorEl.querySelectorAll(".block-param-val").forEach(valEl => {
+    valEl.style.cursor = "default";
+    valEl.title = "Double-click to reset";
+    valEl.addEventListener("dblclick", e => {
+      const bi = +e.target.dataset.block;
+      if (isNaN(bi) || !pipeline[bi]) return;
+      const key = e.target.dataset.key;
+      const defaultVal = BLOCK_DEFS[pipeline[bi].type]?.defaultParams?.[key];
+      if (defaultVal === undefined) return;
+      pipeline[bi].params[key] = defaultVal;
+      const rangeEl = inspectorEl.querySelector(`.block-range[data-block="${bi}"][data-key="${key}"]`);
+      if (rangeEl) rangeEl.value = defaultVal;
+      const pDef = BLOCK_DEFS[pipeline[bi].type]?.paramsUI?.find(p => p.key === key);
+      e.target.textContent = defaultVal + (pDef?.suffix ?? "");
+      invalidate(bi);
+      run();
+      renderInspector();
+      _debounceSave(300);
+    });
+  });
+
+  // Range sliders
+  inspectorEl.querySelectorAll(".block-range").forEach(inp => {
+    inp.addEventListener("pointerup", () => renderInspector());
+    inp.addEventListener("input", e => {
+      const bi = +e.target.dataset.block;
+      if (isNaN(bi) || !pipeline[bi]) return;
+      const key = e.target.dataset.key;
+      const pDef = BLOCK_DEFS[pipeline[bi].type]?.paramsUI?.find(p => p.key === key);
+      const val = pDef?.step && pDef.step < 1 ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+      pipeline[bi].params[key] = val;
+      const valEl = inspectorEl.querySelector(`#bpv-${bi}-${key}`);
+      if (valEl) valEl.textContent = val + (pDef?.suffix ?? "");
+      invalidate(bi);
+      run();
+      _debounceSave(300);
+    });
+  });
+
+  // Select dropdowns
+  inspectorEl.querySelectorAll(".block-select").forEach(sel => {
+    sel.addEventListener("change", e => {
+      const bi = +e.target.dataset.block;
+      const key = e.target.dataset.key;
+      pipeline[bi].params[key] = e.target.value;
+      invalidate(bi);
+      run();
+      renderInspector();
+      saveProject();
+    });
+  });
+
+  // Checkbox toggles
+  inspectorEl.querySelectorAll(".block-toggle").forEach(cb => {
+    cb.addEventListener("change", e => {
+      const bi = +e.target.dataset.block;
+      const key = e.target.dataset.key;
+      pipeline[bi].params[key] = e.target.checked;
+      invalidate(bi);
+      run();
+      renderInspector();
+      saveProject();
+    });
+  });
+
+  // Textareas
+  inspectorEl.querySelectorAll(".block-textarea").forEach(ta => {
+    ta.addEventListener("input", e => {
+      const bi = +e.target.dataset.block;
+      const key = e.target.dataset.key;
+      pipeline[bi].params[key] = e.target.value;
+      invalidate(bi);
+      _debounceSave(500);
+    });
+  });
+
+  // Block remove
+  inspectorEl.querySelectorAll(".block-remove").forEach(btn => {
+    btn.addEventListener("click", e => {
+      const bi = +e.currentTarget.dataset.block;
+      pipeline.splice(bi, 1);
+      invalidate(bi);
+      run();
+      renderInspector();
+      saveProject();
+    });
+  });
+
+  // Add block button
+  const addBtn = inspectorEl.querySelector("#insp-add-block");
+  const picker = inspectorEl.querySelector("#insp-block-picker");
+  addBtn?.addEventListener("click", () => {
+    picker.style.display = picker.style.display === "none" ? "block" : "none";
+  });
+  picker?.querySelectorAll(".block-picker-item").forEach(btn => {
+    btn.addEventListener("click", () => {
+      pipeline.push(makeBlock(btn.dataset.type));
+      picker.style.display = "none";
+      const newIdx = pipeline.length - 1;
+      invalidate(newIdx);
+      run();
+      renderInspector();
+      saveProject();
+    });
+  });
+
+  // Pipeline reorder via drag handle
+  const pipelineEl = inspectorEl.querySelector("#insp-pipeline");
+  if (!pipelineEl) return;
+  pipelineEl.querySelectorAll(".block-drag").forEach(handle => {
+    handle.addEventListener("mousedown", e => {
+      e.preventDefault();
+      const srcIdx = +handle.dataset.block;
+      const srcItem = handle.closest(".block-item");
+      srcItem.classList.add("dragging");
+
+      const items = () => [...pipelineEl.querySelectorAll(".block-item")];
+
+      const onMove = (mv) => {
+        items().forEach(it => it.classList.remove("drag-over"));
+        const over = items().find(it => {
+          const rect = it.getBoundingClientRect();
+          return mv.clientY >= rect.top && mv.clientY < rect.bottom;
+        });
+        if (over && +over.dataset.block !== srcIdx) over.classList.add("drag-over");
+      };
+
+      const onUp = (up) => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        items().forEach(it => it.classList.remove("dragging", "drag-over"));
+
+        const targetEl = items().find(it => {
+          const rect = it.getBoundingClientRect();
+          return up.clientY >= rect.top && up.clientY < rect.bottom;
+        });
+        const targetIdx = targetEl ? +targetEl.dataset.block : null;
+        if (targetIdx !== null && targetIdx !== srcIdx) {
+          const [moved] = pipeline.splice(srcIdx, 1);
+          pipeline.splice(targetIdx, 0, moved);
+          invalidate(Math.min(srcIdx, targetIdx));
+          run();
+          renderInspector();
+          saveProject();
+        }
+      };
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    });
+  });
+}
+
+// ── REGION INSPECTOR ─────────────────────────────────────────────────────
+
+/** @param {number} i */
+function _renderRegionInspector(i) {
+  const r = state.regions[i];
+  const color = regionColor(r, i);
+
+  // Variant / parent helpers — must come first, referenced by material vars below
+  const parent     = getParentRegion(r);
+  const variants   = getVariants(r);
+  const isVariant  = !!parent;
+  const maxW       = isVariant ? parent.outputW : 1024;
+  const maxH       = isVariant ? parent.outputH : 1024;
+
+  // Split variant labels: "region_1_v2" → { base: "region 1", variant: "v2" }
+  const parseLabel = (lbl) => {
+    const m = lbl.match(/^(.+?)_v(\d+)$/);
+    return m ? { base: m[1].replace(/_/g, " "), variant: `v${m[2]}` } : { base: lbl.replace(/_/g, " "), variant: null };
+  };
+  const { base: displayLabel, variant: variantTag } = parseLabel(r.label);
+
+  // Variants inherit material from parent — no need for independent classification.
+  const effectiveMat = r.material ?? (isVariant ? parent.material : null);
+  const matInherited = isVariant && !r.material && !!effectiveMat;
+  const matCls    = effectiveMat?.materialClass ?? null;
+  const matDef    = matCls ? (MATERIAL_CLASSES[matCls] ?? MATERIAL_CLASSES.generic) : null;
+  const semDef    = effectiveMat?.semanticClass ? (SEMANTIC_CLASSES[effectiveMat.semanticClass] ?? null) : null;
+  const tilDef    = effectiveMat?.tilingClass   ? (TILING_CLASSES[effectiveMat.tilingClass]   ?? null) : null;
+
+  // Pipeline blocks HTML
+  const blocksHTML = _buildBlocksHTML(r.pipeline);
 
   const addBlockHTML = `<div class="block-add-wrap">
     <button class="block-footer-btn" id="insp-add-block">${Lucide.iconHTML('plus')} Add Block</button>
     <div class="block-picker" id="insp-block-picker" style="display:none">
       ${BLOCK_CATEGORIES.map(cat => {
-        const items = Object.entries(BLOCK_DEFS).filter(([, def]) => !def.hidden && def.category === cat.key);
+        const items = Object.entries(BLOCK_DEFS).filter(([, def]) => !def.hidden && !def.atlasOnly && def.category === cat.key);
         if (!items.length) return "";
         return `<div class="block-picker-cat">${cat.label}</div>` +
           items.map(([type, def]) => `<button class="block-picker-item" data-type="${type}"><span class="picker-item-icon">${Lucide.iconHTML(def.icon)}</span><span class="picker-item-label">${def.label}${def.isAsync ? ' <span class="chip chip-accent">AI</span>' : ""}</span>${def.desc ? `<span class="picker-item-desc">${def.desc}</span>` : ""}</button>`).join("");
@@ -561,21 +1016,8 @@ function renderInspector() {
     ${variantsHTML}
   `;
 
-  // Draw per-block preview canvases — use inspector width since new children haven't laid out yet
-  const _inspW = inspectorEl.clientWidth - 20;
-  r.pipeline.forEach((b, bi) => {
-    if (!b._cache) return;
-    const pvc = inspectorEl.querySelector(`#bpvc-${bi}`);
-    if (!pvc) return;
-    const maxW = _inspW > 40 ? _inspW : 200;
-    const maxH = 96;
-    const scale = Math.min(maxW / b._cache.width, maxH / b._cache.height);
-    pvc.width  = b._cache.width;
-    pvc.height = b._cache.height;
-    pvc.style.width  = Math.round(b._cache.width  * scale) + "px";
-    pvc.style.height = Math.round(b._cache.height * scale) + "px";
-    pvc.getContext("2d").drawImage(b._cache, 0, 0);
-  });
+  // Draw per-block preview canvases
+  _setupBlockPreviews(inspectorEl, r.pipeline);
 
   // Init inline curves editors
   r.pipeline.forEach((b, bi) => {
@@ -673,7 +1115,11 @@ function renderInspector() {
     state.inspectedIdx = idx >= state.regions.length
       ? (state.regions.length ? state.regions.length - 1 : null)
       : idx;
-    if (!state.regions.some(r => r.extracted)) { state.atlasCanvas = null; state.processed = false; }
+    if (!state.regions.some(r => r.extracted)) {
+      state.atlasCanvas = null;
+      state.atlasBaseCanvas = null;
+      state.processed = false;
+    }
     renderCanvas(); renderInspector(); renderPreview(); updateButtons(); saveProject();
   });
 
@@ -731,19 +1177,16 @@ function renderInspector() {
     btn.addEventListener("click", async e => {
       const bi = +e.currentTarget.dataset.block;
       r.pipeline[bi].enabled = !r.pipeline[bi].enabled;
-      // Async blocks own their cache independently of enabled state — only
-      // invalidate downstream so the cached result is preserved for display.
-      const isAsync = BLOCK_DEFS[r.pipeline[bi].type]?.isAsync;
-      invalidateCacheFrom(r, isAsync ? bi + 1 : bi);
+      // Always preserve the toggled block's own cache — only downstream blocks
+      // need to re-run. Re-enabling restores the cached output instantly instead
+      // of re-running the full block computation from scratch.
+      invalidateCacheFrom(r, bi + 1);
       renderInspector();
-      await autoRunCPU(r, isAsync ? bi + 1 : bi);
+      await autoRunCPU(r, bi + 1);
       renderInspector();
       saveProject();
     });
   });
-
-  let _saveTimer;
-  const _debounceSave = (ms) => { clearTimeout(_saveTimer); _saveTimer = setTimeout(saveProject, ms); };
 
   // Double-click the value label to reset slider to its block definition default.
   // (dblclick on range inputs is unreliable — attach to the value span instead)

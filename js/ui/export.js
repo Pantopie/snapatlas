@@ -5,8 +5,12 @@ let _exportAtlasCanvas  = null;
 let _exportRegions      = [];
 /** @type {import('./packer').Placement[]} */
 let _exportPlacements   = [];
+/** @type {number} Native (un-scaled) atlas size — used for UV coordinate calculation. */
+let _exportNativeAtlasSize = 0;
 /** @type {"atlas" | "regions"} */
 let _exportMode         = "atlas";
+/** Scale multiplier for this export session — defaults to state.outputScale on open. */
+let _exportScale        = 1;
 /** @type {number | null} */
 let _exportPreviewTimer = null;
 /** @type {number | null} */
@@ -24,9 +28,11 @@ let _prevPanStart = { x: 0, y: 0 };
 let _prevPanOrigin = { x: 0, y: 0 };
 
 /** @type {{ canvas: HTMLCanvasElement, key: string, src: HTMLCanvasElement } | null} */
-let _prevScaled          = null;
+let _prevScaled        = null;
 /** @type {({ src: HTMLCanvasElement, key: string, canvas: HTMLCanvasElement } | null)[]} */
-let _prevStylizedRegions = [];
+let _prevScaledRegions = [];
+/** Generation counter — increment to cancel any in-progress region build. */
+let _buildRegionGen    = 0;
 
 // DOM refs — cached once (script is deferred; DOM is ready at this point)
 const _expBackdrop    = document.getElementById("exportModalBackdrop");
@@ -40,24 +46,14 @@ const _expFormat      = document.getElementById("exportFormat");
 const _expJpegRow     = document.getElementById("exportJpegRow");
 const _expQuality     = document.getElementById("exportQuality");
 const _expQualityVal  = document.getElementById("exportQualityVal");
-const _expSizeRow     = document.getElementById("exportSizeRow");
-const _expSizeEl      = document.getElementById("exportSize");
-const _expScaleRow    = document.getElementById("exportScaleRow");
-const _expScaleEl     = document.getElementById("exportScale");
-const _expFilter      = document.getElementById("exportFilter");
+const _expScaleOverride = document.getElementById("exportScaleOverride");
+const _expOutputInfo    = document.getElementById("exportOutputInfo");
+const _expFilter        = document.getElementById("exportFilter");
 const _expUVSection   = document.getElementById("exportUVSection");
 const _expEngine      = document.getElementById("exportEngine");
 const _expNaming      = document.getElementById("exportNaming");
 const _expModeAtlas   = document.getElementById("exportModeAtlas");
 const _expModeRegion  = document.getElementById("exportModeRegions");
-const _expSaturation    = document.getElementById("exportSaturation");
-const _expSaturationVal = document.getElementById("exportSaturationVal");
-const _expBitDepthRow   = document.getElementById("exportBitDepthRow");
-const _expBitDepth      = document.getElementById("exportBitDepth");
-const _expBitDepthVal   = document.getElementById("exportBitDepthVal");
-const _expDitherRow     = document.getElementById("exportDitherRow");
-const _expDither        = document.getElementById("exportDither");
-const _expFixedPalette  = document.getElementById("exportFixedPalette");
 
 /** @type {{ [format: string]: { mime: string, ext: string } }} */
 const _EXP_FMT = {
@@ -71,15 +67,9 @@ const _EXP_FMT = {
  * @property {string} name
  * @property {string} format
  * @property {number} quality
- * @property {number} size
- * @property {number} scale
  * @property {string} filter
  * @property {string} engine
  * @property {string} naming
- * @property {number} bitDepth
- * @property {string} dither
- * @property {number} saturation
- * @property {string} fixedPalette
  */
 
 /** @returns {ExportSettings} */
@@ -88,15 +78,9 @@ function _readExportSettings() {
     name:    (_expName.value.trim() || exportSlug(_exportRegions)).replace(/[^a-z0-9_.-]/gi, "_").replace(/_{2,}/g, "_").replace(/^_|_$/g, "") || "atlas",
     format:  _expFormat.value,
     quality: parseInt(_expQuality.value, 10),
-    size:    parseInt(_expSizeEl.value, 10) || (_exportAtlasCanvas?.width ?? 0),
-    scale:   parseFloat(_expScaleEl.value) || 1,
     filter:  _expFilter.value,
     engine:  _expEngine.value,
     naming:  _expNaming.value,
-    bitDepth:     parseInt(_expBitDepth.value, 10),
-    dither:       _expDither.value,
-    saturation:   parseInt(_expSaturation.value, 10),
-    fixedPalette: _expFixedPalette.value,
   };
 }
 
@@ -121,14 +105,13 @@ function _expDrawChecker(ctx, x, y, w, h) {
 function _fitPrevView() {
   const W = _expPreview.clientWidth || 400, H = _expPreview.clientHeight || 400;
   const PAD = 28;
-  if (_exportMode === "atlas" && _exportAtlasCanvas) {
-    const aw = _exportAtlasCanvas.width;
+  if (_exportMode === "atlas") {
+    const aw = (state.atlasCanvas?.width) || Math.max(1, Math.round(_exportNativeAtlasSize * _exportScale));
     _prevView.zoom = Math.min((W - PAD * 2) / aw, (H - PAD * 2) / aw);
     _prevView.panX = (W - aw * _prevView.zoom) / 2;
     _prevView.panY = (H - aw * _prevView.zoom) / 2;
   } else if (_exportMode === "regions" && _exportRegions.length) {
-    const sc = parseFloat(_expScaleEl.value) || 1;
-    const { cols, maxW, maxH } = _expRegionGridLayout(sc);
+    const { cols, maxW, maxH } = _expRegionGridLayout();
     const rows  = Math.ceil(_exportRegions.length / cols);
     const totalW = cols * maxW + (cols - 1) * 6;
     const totalH = rows * maxH + (rows - 1) * 6;
@@ -138,8 +121,9 @@ function _fitPrevView() {
   }
 }
 
-/** @param {number} [scale] @returns {{ n: number, cols: number, maxW: number, maxH: number }} */
-function _expRegionGridLayout(scale = 1) {
+/** @returns {{ n: number, cols: number, maxW: number, maxH: number }} */
+function _expRegionGridLayout() {
+  const scale = _exportScale;
   const n    = _exportRegions.length;
   const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
   const maxW = Math.max(1, ..._exportRegions.map(r => Math.round((r.outputW || r.extracted?.width  || 1) * scale)));
@@ -147,33 +131,102 @@ function _expRegionGridLayout(scale = 1) {
   return { n, cols, maxW, maxH };
 }
 
-/** @param {ExportSettings} s @returns {string} */
-function _stylizeKey(s) {
-  return `${s.bitDepth}|${s.dither}|${s.saturation}|${s.fixedPalette}`;
-}
-
 /** @param {ExportSettings} s @returns {HTMLCanvasElement | null} */
 function _getScaledAtlas(s) {
   if (!_exportAtlasCanvas) return null;
-  const key = `${s.size}|${s.filter}|${_stylizeKey(s)}`;
-  if (_prevScaled?.key !== key || _prevScaled?.src !== _exportAtlasCanvas) {
-    const scaled = exportScaleCanvas(_exportAtlasCanvas, s.size, s.size, s.filter);
-    _prevScaled = { canvas: exportApplyStylize(scaled, s), key, src: _exportAtlasCanvas };
-  }
+  const key = s.filter;
+  if (_prevScaled?.key === key && _prevScaled?.src === _exportAtlasCanvas) return _prevScaled.canvas;
+  const w = _exportAtlasCanvas.width, h = _exportAtlasCanvas.height;
+  _prevScaled = { canvas: exportScaleCanvas(_exportAtlasCanvas, w, h, s.filter), key, src: _exportAtlasCanvas };
   return _prevScaled.canvas;
 }
 
-/** @param {Region} r @param {number} i @param {ExportSettings} s @returns {HTMLCanvasElement} */
+/**
+ * Return the pre-built styled canvas for region i (sync, cache-lookup only).
+ * Falls back to a plain scaled version while the build is in progress.
+ * @param {Region} r @param {number} i @param {ExportSettings} s
+ * @returns {HTMLCanvasElement}
+ */
 function _getStyledRegion(r, i, s) {
-  const key = `${s.scale}|${s.filter}|${_stylizeKey(s)}`;
-  const c = _prevStylizedRegions[i];
-  if (c?.src === r.extracted && c?.key === key) return c.canvas;
-  const tw = Math.max(1, Math.round((r.outputW || r.extracted.width)  * s.scale));
-  const th = Math.max(1, Math.round((r.outputH || r.extracted.height) * s.scale));
-  const scaled = exportScaleCanvas(r.extracted, tw, th, s.filter);
-  const canvas = exportApplyStylize(scaled, s);
-  _prevStylizedRegions[i] = { src: r.extracted, key, canvas };
-  return canvas;
+  const cached = _prevScaledRegions[i];
+  if (cached?.src === r.extracted) return cached.canvas;
+  // Fallback: plain scaled region while atlas-extraction build is pending
+  const scale = _exportScale;
+  const tw = Math.max(1, Math.round((r.outputW || r.extracted.width)  * scale));
+  const th = Math.max(1, Math.round((r.outputH || r.extracted.height) * scale));
+  return exportScaleCanvas(r.extracted, tw, th, s.filter);
+}
+
+/**
+ * Crop region `i` out of `_exportAtlasCanvas`, un-rotating if the packer
+ * rotated it. The result already has all global pipeline effects applied
+ * because `_exportAtlasCanvas` was produced by the full atlas pipeline.
+ * Returns null if the atlas canvas isn't ready yet.
+ * @param {number} i
+ * @returns {HTMLCanvasElement | null}
+ */
+function _extractRegionFromAtlas(i) {
+  if (!_exportAtlasCanvas || !_exportPlacements[i]) return null;
+  const p     = _exportPlacements[i];
+  const scale = _exportScale;
+  // Coords in the scaled atlas canvas
+  const px = Math.round(p.x * scale);
+  const py = Math.round(p.y * scale);
+  const pw = Math.round(p.w * scale); // atlas-space width  (= srcH when rotated)
+  const ph = Math.round(p.h * scale); // atlas-space height (= srcW when rotated)
+
+  const c   = document.createElement("canvas");
+  const ctx = c.getContext("2d");
+
+  if (p.rotated) {
+    // The region was drawn rotated 90° CW in the atlas.
+    // Un-rotate 90° CCW: output is ph × pw = srcW × srcH.
+    c.width  = ph; // = srcW * scale
+    c.height = pw; // = srcH * scale
+    ctx.translate(0, pw); // pw = srcH * scale
+    ctx.rotate(-Math.PI / 2);
+    ctx.drawImage(_exportAtlasCanvas, px, py, pw, ph, 0, 0, pw, ph);
+  } else {
+    c.width  = pw;
+    c.height = ph;
+    ctx.drawImage(_exportAtlasCanvas, px, py, pw, ph, 0, 0, pw, ph);
+  }
+  return c;
+}
+
+/**
+ * Build per-region export canvases by cropping from the already-pipelined
+ * `_exportAtlasCanvas`. This means global pipeline effects (stylize, levels,
+ * etc.) are automatically included with no additional runner calls and zero
+ * interference with the live atlas pipeline.
+ *
+ * Cancellable: incrementing `_buildRegionGen` aborts any in-progress build.
+ * @returns {void}
+ */
+function _buildStyledRegions() {
+  ++_buildRegionGen;
+  // Ensure _exportAtlasCanvas reflects the latest pipelined atlas at the current scale
+  _buildExportAtlas(_exportScale);
+  if (!_exportAtlasCanvas) return; // no atlas at all yet
+
+  const cacheKey = `atlas|${_exportAtlasCanvas.width}|${_exportScale}`;
+  let changed = false;
+
+  for (let i = 0; i < _exportRegions.length; i++) {
+    const r = _exportRegions[i];
+    if (!r.extracted) continue;
+    if (_prevScaledRegions[i]?.key === cacheKey) continue; // already up-to-date
+
+    const canvas = _extractRegionFromAtlas(i);
+    if (!canvas) continue;
+    _prevScaledRegions[i] = { src: r.extracted, key: cacheKey, canvas };
+    changed = true;
+  }
+
+  if (changed) {
+    _renderPrevCanvas();
+    _scheduleFileSizeEst();
+  }
 }
 
 /** @returns {void} */
@@ -196,24 +249,20 @@ function _renderPrevCanvas() {
   ctx.fillRect(0, 0, W, H);
 
   if (_exportMode === "atlas" && _exportAtlasCanvas) {
-    // Draw the size/filter-corrected version so the preview faithfully shows
-    // downscale quality (blockiness at low res, bilinear blur, etc.).
     const scaled = _getScaledAtlas(s);
-    const aw = _exportAtlasCanvas.width;  // world-space size stays fixed for pan/zoom continuity
+    const aw = _exportAtlasCanvas.width;
     const sx = _prevView.panX, sy = _prevView.panY;
     const sw = aw * _prevView.zoom;
 
-    // Checkerboard behind transparent areas
     _expDrawChecker(ctx, sx, sy, sw, sw);
-
-    // Disable browser smoothing so we see actual pixels from the scaled canvas
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(scaled, sx, sy, sw, sw);
 
-    _expLabel.textContent = `${s.size} × ${s.size} px`;
+    _expLabel.textContent = `${aw} × ${aw} px`;
+    if (_expOutputInfo) _expOutputInfo.textContent = `${aw} × ${aw} px`;
 
   } else if (_exportMode === "regions" && _exportRegions.length) {
-    const { n, cols, maxW, maxH } = _expRegionGridLayout(s.scale);
+    const { n, cols, maxW, maxH } = _expRegionGridLayout();
     const GAP = 6;
     ctx.imageSmoothingEnabled = false; // already stylized/scaled — show exact pixels
     for (let i = 0; i < n; i++) {
@@ -223,12 +272,13 @@ function _renderPrevCanvas() {
       const col = i % cols, row = Math.floor(i / cols);
       const dx = _prevView.panX + col * (maxW + GAP) * _prevView.zoom;
       const dy = _prevView.panY + row * (maxH + GAP) * _prevView.zoom;
-      const dw = Math.max(1, Math.round((r.outputW || r.extracted?.width  || 1) * s.scale)) * _prevView.zoom;
-      const dh = Math.max(1, Math.round((r.outputH || r.extracted?.height || 1) * s.scale)) * _prevView.zoom;
+      const dw = Math.max(1, Math.round((r.outputW || r.extracted?.width  || 1) * _exportScale)) * _prevView.zoom;
+      const dh = Math.max(1, Math.round((r.outputH || r.extracted?.height || 1) * _exportScale)) * _prevView.zoom;
       _expDrawChecker(ctx, dx, dy, dw, dh);
       ctx.drawImage(styled, dx, dy, dw, dh);
     }
     _expLabel.textContent = `${n} region${n !== 1 ? "s" : ""} → .zip`;
+    if (_expOutputInfo) _expOutputInfo.textContent = `up to ${maxW} × ${maxH} px`;
   }
 }
 
@@ -256,20 +306,24 @@ async function _doFileSizeEst() {
   const qual = s.format === "jpeg" ? s.quality / 100 : undefined;
 
   if (_exportMode === "atlas") {
-    const scaled = exportScaleCanvas(_exportAtlasCanvas, s.size, s.size, s.filter);
-    const out    = exportApplyStylize(scaled, s);
-    const blob   = await new Promise(res => out.toBlob(res, fmt.mime, qual));
+    const src = state.atlasCanvas;
+    if (!src) { _expFileSizeEl.textContent = ""; return; }
+    const aw = src.width;
+    const scaled = exportScaleCanvas(src, aw, aw, s.filter);
+    const blob   = await new Promise(res => scaled.toBlob(res, fmt.mime, qual));
     _expFileSizeEl.textContent = blob ? "≈ " + _fmtBytes(blob.size) : "";
     _expFilenameEl.textContent = s.name + fmt.ext;
   } else {
     let total = 0;
-    for (const r of _exportRegions) {
+    for (let i = 0; i < _exportRegions.length; i++) {
+      const r = _exportRegions[i];
       if (!r.extracted) continue;
-      const tw   = Math.max(1, Math.round((r.outputW || r.extracted.width)  * s.scale));
-      const th   = Math.max(1, Math.round((r.outputH || r.extracted.height) * s.scale));
-      const scaled = exportScaleCanvas(r.extracted, tw, th, s.filter);
-      const out    = exportApplyStylize(scaled, s);
-      const blob   = await new Promise(res => out.toBlob(res, fmt.mime, qual));
+      const scaled = _prevScaledRegions[i]?.canvas ?? (() => {
+        const tw = Math.max(1, Math.round((r.outputW || r.extracted.width)  * _exportScale));
+        const th = Math.max(1, Math.round((r.outputH || r.extracted.height) * _exportScale));
+        return exportScaleCanvas(r.extracted, tw, th, s.filter);
+      })();
+      const blob   = await new Promise(res => scaled.toBlob(res, fmt.mime, qual));
       if (blob) total += blob.size;
     }
     _expFileSizeEl.textContent = total ? "≈ " + _fmtBytes(total) + " total" : "";
@@ -291,26 +345,57 @@ function _scheduleExportPreview() {
 // ── Mode UI ────────────────────────────────────────────────────────────────
 
 /** @param {"atlas" | "regions"} mode */
-function _applyExportModeUI(mode) {
+async function _applyExportModeUI(mode) {
   _exportMode = mode;
   _expModeAtlas.classList.toggle("active",  mode === "atlas");
   _expModeRegion.classList.toggle("active", mode === "regions");
-  _expSizeRow.style.display   = mode === "atlas"   ? "" : "none";
-  _expScaleRow.style.display  = mode === "regions" ? "" : "none";
-  _expUVSection.style.display = mode === "atlas"   ? "" : "none";
+  _expUVSection.style.display = mode === "atlas" ? "" : "none";
   _fitPrevView();
-  _renderPrevCanvas();
-  _scheduleFileSizeEst();
+  _renderPrevCanvas(); // shows fallback scaled regions immediately
+  if (mode === "regions") {
+    if (typeof _runAtlasPipelineAndStore === "function") {
+      await _runAtlasPipelineAndStore();
+    }
+    _buildStyledRegions();
+  } else _scheduleFileSizeEst();
 }
 
 // ── Open / close ───────────────────────────────────────────────────────────
+
+/**
+ * Build `_exportAtlasCanvas` — an OWNED COPY of the pipelined atlas at the
+ * requested scale. Never shares a reference with `state.atlasCanvas`; always
+ * a fresh canvas so the export is completely isolated from the live pipeline.
+ * Called on open, on scale change, and when the pipeline finishes (via hook).
+ * @param {number} scale
+ */
+function _buildExportAtlas(scale) {
+  _prevScaled = null;
+
+  const src = state.atlasCanvas || state.atlasBaseCanvas;
+  const sz  = Math.max(1, Math.round(_exportNativeAtlasSize * scale));
+  const c   = document.createElement("canvas");
+  c.width   = sz; c.height = sz;
+  const ctx = c.getContext("2d");
+
+  if (src) {
+    ctx.imageSmoothingEnabled = (sz !== src.width);
+    if (ctx.imageSmoothingEnabled) ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(src, 0, 0, sz, sz);
+  } else {
+    // No atlas canvas yet — composite directly from regions
+    _exportRegions.forEach((r, i) =>
+      _drawOnAtlas(ctx, r.extracted, _exportPlacements[i], 0, 0, scale));
+  }
+  _exportAtlasCanvas = c;
+}
 
 /** @returns {Promise<void>} */
 async function openExportModal() {
   const selected = state.regions.filter(r => r.selected);
   if (!selected.length) return;
 
-  // Build atlas canvas — fall back to crop if pipeline hasn't run
+  // Build region list — fall back to crop if pipeline hasn't run yet
   _exportRegions = (await Promise.all(selected.map(async r => {
     if (r.extracted) return r;
     const fb = r.parentId ? _variantInputCanvas(r) : _rawCropScaled(r);
@@ -321,37 +406,30 @@ async function openExportModal() {
   if (!_exportRegions.length) return;
   const layout = packAtlas(_exportRegions);
   if (!layout) return;
-  _exportPlacements  = layout.placements;
-  _exportAtlasCanvas = document.createElement("canvas");
-  _exportAtlasCanvas.width = _exportAtlasCanvas.height = layout.atlasSize;
-  const actx = _exportAtlasCanvas.getContext("2d");
-  _exportRegions.forEach((r, i) => _drawOnAtlas(actx, r.extracted, _exportPlacements[i]));
+  _exportPlacements      = layout.placements;
+  _exportNativeAtlasSize = layout.atlasSize;
 
-  // Populate size select with POT options ≥ 64 up to atlasSize
-  _expSizeEl.innerHTML = "";
-  let sz = layout.atlasSize;
-  while (sz >= 64) {
-    const opt = document.createElement("option");
-    opt.value = sz;
-    opt.textContent = sz === layout.atlasSize ? `${sz} × ${sz} (full)` : `${sz} × ${sz}`;
-    _expSizeEl.appendChild(opt);
-    sz >>= 1;
+  // Populate the scale selector from the shared options list and set its initial value
+  _exportScale = state.outputScale ?? 1;
+  if (_expScaleOverride) {
+    _expScaleOverride.innerHTML = OUTPUT_SCALE_OPTIONS.map(o =>
+      `<option value="${o.value}"${o.value === _exportScale ? " selected" : ""}>${o.label}</option>`
+    ).join("");
   }
 
   _expName.value = state.atlasName || "Untitled Atlas";
-  _prevScaled = null;
-  _prevStylizedRegions = [];
-  _updateStylizeUI();
-  _expBackdrop.classList.add("open");
+  _prevScaledRegions = [];
 
-  // Defer fit+render until the modal is visible and the canvas has a layout size
+  // Build the atlas canvas synchronously (now a pure rescale — no pipeline runners called)
+  _buildExportAtlas(_exportScale);
+
+  _expBackdrop.classList.add("open");
+  _exportResizeObs = new ResizeObserver(() => _renderPrevCanvas());
+  _exportResizeObs.observe(_expPreviewWrap);
+
   requestAnimationFrame(() => {
     _applyExportModeUI("atlas");
   });
-
-  // Re-render on wrap resize (e.g. window resize while modal is open)
-  _exportResizeObs = new ResizeObserver(() => _renderPrevCanvas());
-  _exportResizeObs.observe(_expPreviewWrap);
 }
 
 /** @returns {void} */
@@ -361,45 +439,54 @@ function _closeExportModal() {
   _exportResizeObs = null;
   clearTimeout(_exportPreviewTimer);
   clearTimeout(_exportSizeTimer);
-  _prevScaled = null;
-  _prevStylizedRegions = [];
+  _prevScaled        = null;
+  _prevScaledRegions = [];
+  _exportAtlasCanvas = null; // release reference so the canvas can be GC'd
+  _exportMode        = "atlas"; // reset for next open
+  renderPreview();
 }
 
 // ── Export ─────────────────────────────────────────────────────────────────
 
 /** @returns {Promise<void>} */
 async function _doExport() {
+  if (_exportMode === "atlas" && !state.atlasCanvas) return;
   const s    = _readExportSettings();
   const fmt  = _EXP_FMT[s.format] ?? _EXP_FMT.png;
   const qual = s.format === "jpeg" ? s.quality / 100 : undefined;
 
   if (_exportMode === "atlas") {
-    const scaled = exportScaleCanvas(_exportAtlasCanvas, s.size, s.size, s.filter);
-    const out    = exportApplyStylize(scaled, s);
-    const blob   = await new Promise(res => out.toBlob(res, fmt.mime, qual));
+    // Use the live pipelined canvas — always current, never stale
+    const exportSrc = _getScaledAtlas(s) ?? state.atlasCanvas;
+    if (!exportSrc) return;
+    const atlasW = exportSrc.width;
+    const blob   = await new Promise(res => exportSrc.toBlob(res, fmt.mime, qual));
     if (blob) downloadBlob(blob, s.name + fmt.ext);
 
     if (s.engine !== "none") {
-      const atlasSize = _exportAtlasCanvas.width;
+      // UV coords use native (un-scaled) placement coords
       if (s.engine === "blender_zenuv") {
-        const svgStr = exportBuildZenUVSVG(_exportRegions, _exportPlacements, atlasSize, s.naming, _exportAtlasCanvas);
+        const svgStr = exportBuildZenUVSVG(_exportRegions, _exportPlacements, _exportNativeAtlasSize, s.naming, exportSrc);
         downloadBlob(new Blob([svgStr], { type: "image/svg+xml" }), s.name + ".svg");
       } else {
-        const uvData = exportBuildUVData(s.engine, _exportRegions, _exportPlacements, atlasSize, s.naming, s.name + fmt.ext);
+        const uvData = exportBuildUVData(s.engine, _exportRegions, _exportPlacements, _exportNativeAtlasSize, s.naming, s.name + fmt.ext);
         const suffix = s.engine === "snapatlas" ? "_uv.json" : ".json";
         downloadBlob(new Blob([JSON.stringify(uvData, null, 2)], { type: "application/json" }), s.name + suffix);
       }
     }
-    showToast(`Exported — ${s.size}×${s.size}px`);
+    showToast(`Exported — ${atlasW}×${atlasW}px`);
 
   } else {
     // Individual regions → ZIP
-    const entries = await Promise.all(_exportRegions.map(async r => {
-      const tw     = Math.max(1, Math.round((r.outputW || r.extracted.width)  * s.scale));
-      const th     = Math.max(1, Math.round((r.outputH || r.extracted.height) * s.scale));
-      const scaled = exportScaleCanvas(r.extracted, tw, th, s.filter);
-      const out    = exportApplyStylize(scaled, s);
-      const blob   = await new Promise(res => out.toBlob(res, fmt.mime, qual));
+    // Ensure styled regions are built (sync; usually already done by the time user clicks Export)
+    _buildStyledRegions();
+    const entries = await Promise.all(_exportRegions.map(async (r, i) => {
+      const canvas = _prevScaledRegions[i]?.canvas ?? (() => {
+        const tw = Math.max(1, Math.round((r.outputW || r.extracted.width)  * _exportScale));
+        const th = Math.max(1, Math.round((r.outputH || r.extracted.height) * _exportScale));
+        return exportScaleCanvas(r.extracted, tw, th, s.filter);
+      })();
+      const blob = await new Promise(res => canvas.toBlob(res, fmt.mime, qual));
       if (!blob) return null;
       const ab = await blob.arrayBuffer();
       return { name: exportApplyNaming(r.label, s.naming) + fmt.ext, data: new Uint8Array(ab) };
@@ -413,7 +500,7 @@ async function _doExport() {
     mode: _exportMode,
     format: s.format,
     engine: s.engine === "none" ? null : s.engine,
-    size: _exportMode === "atlas" ? s.size : Math.round(s.scale * 100) + "%",
+    outputScale: _exportScale,
   });
   _closeExportModal();
 }
@@ -436,8 +523,8 @@ document.getElementById("exportModalCancel").addEventListener("click", _closeExp
 document.getElementById("exportModalExport").addEventListener("click", _doExport);
 _expBackdrop.addEventListener("click", e => { if (e.target === _expBackdrop) _closeExportModal(); });
 
-_expModeAtlas.addEventListener("click",  () => _applyExportModeUI("atlas"));
-_expModeRegion.addEventListener("click", () => _applyExportModeUI("regions"));
+_expModeAtlas.addEventListener("click",  () => { _applyExportModeUI("atlas"); });
+_expModeRegion.addEventListener("click", async () => { await _applyExportModeUI("regions"); });
 
 _expFormat.addEventListener("change", () => {
   _expJpegRow.style.display = _expFormat.value === "jpeg" ? "" : "none";
@@ -447,36 +534,30 @@ _expQuality.addEventListener("input", () => {
   _expQualityVal.textContent = _expQuality.value;
   _scheduleExportPreview();
 });
-_expSizeEl.addEventListener("change",  _scheduleExportPreview);
-_expScaleEl.addEventListener("change", () => { _fitPrevView(); _scheduleExportPreview(); });
-_expFilter.addEventListener("change",  _scheduleExportPreview);
+_expScaleOverride.addEventListener("change", async () => {
+  _exportScale = parseFloat(_expScaleOverride.value);
+  // Ensure atlas pipeline is applied before building from state.atlasCanvas
+  if (typeof _runAtlasPipelineAndStore === "function") {
+    await _runAtlasPipelineAndStore();
+  }
+  _prevScaledRegions = []; // invalidate region cache — scale changed
+  _buildExportAtlas(_exportScale); // sync rescale
+  _fitPrevView();
+  _buildStyledRegions(); // sync: re-extract regions from the rescaled atlas
+  _renderPrevCanvas();
+  _scheduleFileSizeEst();
+});
+_expFilter.addEventListener("change", () => {
+  // Filter affects atlas scaling but not the atlas-extraction approach for regions
+  // (regions are cropped from the already-rendered atlas, filter only applies to atlas preview)
+  _scheduleExportPreview();
+});
 _expName.addEventListener("input", () => {
   state.atlasName = _expName.value.trim();
   atlasNameInput.value = state.atlasName || "Untitled Atlas";
   saveProject();
   _scheduleExportPreview();
 });
-// ── Stylize controls ──────────────────────────────────────────────────────
-/** @type {string[]} */
-const _BIT_DEPTH_LABELS = ["","1 bit","2 bit","3 bit","4 bit","5 bit","6 bit","7 bit","off"];
-
-/** @returns {void} */
-function _updateStylizeUI() {
-  const bits   = parseInt(_expBitDepth.value, 10);
-  const hasPal = _expFixedPalette.value !== "none";
-  _expBitDepthVal.textContent         = _BIT_DEPTH_LABELS[bits] ?? "off";
-  _expBitDepthRow.classList.toggle("is-disabled", hasPal);
-  _expDitherRow.style.display         = (bits < 8 || hasPal) ? "" : "none";
-}
-
-_expSaturation.addEventListener("input", () => {
-  _expSaturationVal.textContent = _expSaturation.value + "%";
-  _scheduleExportPreview();
-});
-_expBitDepth.addEventListener("input", () => { _updateStylizeUI(); _scheduleExportPreview(); });
-_expDither.addEventListener("change", _scheduleExportPreview);
-_expFixedPalette.addEventListener("change", () => { _updateStylizeUI(); _scheduleExportPreview(); });
-
 // Preview pan/zoom — left-drag to pan
 _expPreviewWrap.addEventListener("mousedown", e => {
   if (e.button !== 0) return;

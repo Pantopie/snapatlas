@@ -14,6 +14,7 @@ const ORDER = [
   "ai",
   "analytics",
   "pipeline",
+  "atlas-pipeline",
   "export",
   "ui/canvas",
   "ui/inspector",
